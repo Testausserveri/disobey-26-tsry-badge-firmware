@@ -1,12 +1,8 @@
 .PHONY: all submodules micro_init build_firmware clean_frozen_py rebuild_mpy_cross
 SHELL := /bin/bash
 
-# Detect Python command (prefer uv venv, then python3, then python)
-ifneq (,$(wildcard .venv/bin/python))
-    PYTHON := .venv/bin/python
-else
-    PYTHON := $(shell command -v python3 2>/dev/null || command -v python 2>/dev/null)
-endif
+# Detect Python command
+PYTHON := $(shell command -v python3 2>/dev/null || command -v python 2>/dev/null)
 ifeq ($(PYTHON),)
 $(error Python is not installed. Please install Python 3)
 endif
