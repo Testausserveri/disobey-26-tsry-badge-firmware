@@ -60,6 +60,7 @@ dist/firmware_$(FW_TYPE).bin: micro_init
 	cp micropython/ports/esp32/build-$$BOARD-$$BOARD_VARIANT/firmware.bin dist/firmware_$(FW_TYPE).bin
 
 deploy: 
+	FW_TYPE=$(FW_TYPE) source ./set_environ.sh
 	@if [ -z "$$PORT" ]; then \
 		esptool --chip esp32s3 -b 460800 --before=default-reset --after=hard-reset write-flash --flash-size detect 0x0 dist/firmware_$(FW_TYPE).bin; \
 	else \
@@ -68,6 +69,7 @@ deploy:
 
 repl_with_firmware_dir:
 	@echo "Starting REPL with firmware directory mounted..."
+	FW_TYPE=$(FW_TYPE) source ./set_environ.sh
 	@if [ -z "$$PORT" ]; then \
 		$(PYTHON) micropython/tools/mpremote/mpremote.py baud 460800 u0 mount -l firmware; \
 	else \
