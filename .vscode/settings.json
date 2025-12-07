@@ -1,0 +1,59 @@
+{
+  "python.analysis.exclude": [
+    "**/micropython/esp-idf/**",
+    "**/micropython/lib/**",
+    "**/micropython/ports/**",
+    "**/micropython/py/**",
+    "**/micropython/extmod/**",
+    "**/micropython/shared/**",
+    "**/micropython/tests/**",
+    "**/micropython/tools/**",
+    "**/micropython/examples/**",
+    "**/micropython/drivers/**",
+    "**/micropython/mpy-cross/**",
+    "**/libs/micropython-micro-gui/drivers/**",
+    "**/libs/micropython-micro-gui/setup_examples/**",
+    "**/libs/micropython-micro-gui/utils/**",
+    "**/libs/**",
+    "**/.venv/**",
+    "**/dist/**",
+    "**/__pycache__/**",
+    "**/.git/**"
+  ],
+  "python.analysis.ignore": [
+    "**/micropython/**",
+    "**/libs/**"
+  ],
+  "files.watcherExclude": {
+    "**/micropython/esp-idf/**": true,
+    "**/micropython/lib/**": true,
+    "**/micropython/ports/**": true,
+    "**/micropython/py/**": true,
+    "**/micropython/extmod/**": true,
+    "**/micropython/shared/**": true,
+    "**/micropython/tests/**": true,
+    "**/micropython/tools/**": true,
+    "**/micropython/examples/**": true,
+    "**/micropython/drivers/**": true,
+    "**/micropython/mpy-cross/**": true,
+    "**/libs/**": true,
+    "**/.venv/**": true,
+    "**/dist/**": true,
+    "**/__pycache__/**": true
+  },
+  "files.exclude": {
+    "**/__pycache__": true,
+    "**/*.pyc": true
+  },
+  "search.exclude": {
+    "**/micropython/esp-idf/**": true,
+    "**/micropython/lib/**": true,
+    "**/libs/**": true,
+    "**/.venv/**": true,
+    "**/dist/**": true,
+    "**/__pycache__/**": true
+  },
+  "python.analysis.autoImportCompletions": true,
+  "python.analysis.typeCheckingMode": "off",
+  "python.analysis.diagnosticMode": "openFilesOnly"
+}
