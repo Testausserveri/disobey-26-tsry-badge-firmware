@@ -15,7 +15,7 @@ A MicroPython firmware project for electronic badges. This repository manages th
 
    ```bash
    git clone --recursive https://github.com/disobeyfi/disobey-badge-2025-game-firmware
-   cd badgefirmware
+   cd disobey-badge-2025-game-firmware
    ```
 
 2. Dev container configuration:
