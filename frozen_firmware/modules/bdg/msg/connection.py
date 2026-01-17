@@ -4,7 +4,7 @@ from time import ticks_ms, ticks_diff, time
 import aioespnow
 from collections import namedtuple, deque
 
-from badge.msg import (
+from bdg.msg import (
     OpenConn,
     send_message,
     ConTerm,

@@ -78,7 +78,7 @@ from gui.core.colors import *
 
 # Async support
 import asyncio
-from badge.asyncbutton import ButtonEvents, ButAct
+from bdg.asyncbutton import ButtonEvents, ButAct
 ```
 
 ### Screen Management
@@ -118,7 +118,7 @@ class GameButton(Widget):
 ### Message Definition Pattern
 
 ```python
-from badge.msg import AppMsg, BadgeMsg
+from bdg.msg import AppMsg, BadgeMsg
 
 @AppMsg.register
 class GameStart(BadgeMsg):
@@ -233,7 +233,7 @@ self.timer_task = asyncio.create_task(self.game_timer(30))
 The badge uses a sophisticated screen stack system to manage navigation between games and menus.
 
 ```python
-from badge.games import change_app
+from bdg.utils import change_app
 
 # Navigate to a game, preventing duplicate stacking
 def open_my_game():
@@ -522,7 +522,7 @@ except GameError as e:
 ### Button Event Handling
 
 ```python
-from badge.asyncbutton import ButtonEvents, ButAct
+from bdg.asyncbutton import ButtonEvents, ButAct
 
 class GameScreen(Screen):
     def after_open(self):
@@ -574,6 +574,29 @@ make repl_with_firmware_dir
 The `load_app()` function automatically initializes all required badge components (buttons, network, display) if not already initialized, so you can use it immediately after boot.
 
 **Note:** For multiplayer games that require connection between two badges, the workflow for using `load_app()` to establish connections needs to be tested and documented. Currently, `load_app()` works well for single-player testing and casual modes.
+
+### Testing Multiplayer Games with Two Badges
+
+When developing multiplayer games in the non-frozen side (`firmware/badge/games`), both badges need to be connected and running the badge UI to establish communication:
+
+```bash
+# On both badges:
+# 1. Connect badge via USB and start REPL with mounted firmware directory
+make repl_with_firmware_dir
+
+# 2. Start the badge UI on both badges
+>>> import badge.main
+
+# 3. Now both badges can discover each other and test multiplayer games
+# The game will be loaded from firmware/badge/games on both badges
+```
+
+This is necessary because:
+- ESP-NOW communication requires both badges to be running the badge software
+- Games in `firmware/badge/games` are only available when the firmware directory is mounted
+- The badge UI initializes the network stack and game registry on both devices
+
+For production testing with frozen firmware, games are automatically available on boot.
 
 ### Development Testing
 
@@ -709,7 +732,7 @@ class LongRunningGame(Screen):
 
 ```python
 # ✅ PROPER BUTTON HANDLING
-from badge.asyncbutton import ButtonEvents, ButAct
+from bdg.asyncbutton import ButtonEvents, ButAct
 
 class GameScreen(Screen):
     def __init__(self):

@@ -65,7 +65,7 @@ class BadgeMsg(object):
             msg.__id = mid
             return msg
         except Exception as e:
-            print(f"Error deserializing msg: {e}")
+            print(f"Error deserializing msg: {e}, dump: {dump}")
             return None
 
 

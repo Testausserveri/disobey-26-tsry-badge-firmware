@@ -1,11 +1,11 @@
 from time import time
 
-from badge.msg import *
+from bdg.msg import *
 import aioespnow
 import network
 from collections import deque
 
-from badge.msg import BadgeAdr
+from bdg.msg import BadgeAdr
 from tests.wait_any_coro import WaitAnyCoro
 
 

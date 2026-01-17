@@ -103,13 +103,13 @@ class ReactionGameCasualEndScr(Screen):
 
     def restart(self, *args):
         Screen.change(
-            ReactionGameScr,
+            ReactionSoloGameScr,
             mode=Screen.REPLACE,
             kwargs={"conn": self.conn, "casual": True},
         )
 
 
-class ReactionGameScr(Screen):
+class ReactionSoloGameScr(Screen):
 
     STATE_GAME_PAUSED = 0
     STATE_GAME_ONGOING = 1
@@ -188,7 +188,7 @@ class ReactionGameScr(Screen):
             seed = 1
 
         if not self.game:
-            self.game = RGame(seed, 20)
+            self.game = RSoloGame(seed, 20)
 
         if not self.gt or self.gt.done():
             self.gt = self.reg_task(self.cont_sqnc(), True)
@@ -272,7 +272,7 @@ class ReactionGameScr(Screen):
             )
 
 
-class RGame:
+class RSoloGame:
     def __init__(self, seed: int, size: int = 200):
         random.seed(seed)
 
@@ -319,10 +319,10 @@ def badge_game_config():
         dict: Game configuration with con_id, title, screen_class, etc.
     """
     return {
-        "con_id": 2,
-        "title": "Reaction Game (Dev)",
-        "screen_class": ReactionGameScr,
+        "con_id": 4,
+        "title": "Reaction Game (Solo)",
+        "screen_class": ReactionSoloGameScr,
         "screen_args": (),  # Connection passed separately by framework
-        "multiplayer": True,
-        "description": "Fast-paced reaction speed challenge between badges",
+        "multiplayer": False,
+        "description": "Fast-paced reaction speed challenge",
     }

@@ -3,8 +3,8 @@ import random
 import aioespnow
 import network
 
-from badge.msg import BeaconMsg
-from badge.msg.connection import Beacon
+from bdg.msg import BeaconMsg
+from bdg.msg.connection import Beacon
 
 
 def run():

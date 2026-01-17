@@ -9,8 +9,8 @@ import gc
 
 import network
 
-from badge.msg import BeaconMsg, RPSMsg
-from badge.msg.connection import Connection, NowListener, Beacon
+from bdg.msg import BeaconMsg, RPSMsg
+from bdg.msg.connection import Connection, NowListener, Beacon
 
 
 async def demo():

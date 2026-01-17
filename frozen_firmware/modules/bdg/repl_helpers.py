@@ -19,7 +19,7 @@ def _initialize_badge():
     import network
     from bdg.config import Config
     from hardware_setup import BtnConfig
-    from badge.asyncbutton import ButtonEvents
+    from bdg.asyncbutton import ButtonEvents
     from gui.core.ugui import quiet
 
     print("Initializing badge for REPL...")

@@ -17,10 +17,14 @@ class RpsScreen(Screen):
         self.wribut = CWriter(ssd, arial10, GREEN, BLACK, verbose=False)
 
         # Labels for rounds and info
-        self.round_label = Label(self.wri, 170 // 3 - 30, 2, 316, bdcolor=False, justify=1, fgcolor=D_GREEN)
+        self.round_label = Label(
+            self.wri, 170 // 3 - 30, 2, 316, bdcolor=False, justify=1, fgcolor=D_GREEN
+        )
         self.round_label.value("There are usually 3 rounds.")
 
-        self.info = Label(self.wri, 170 // 3 - 5, 2, 316, bdcolor=False, justify=1, fgcolor=D_PINK)
+        self.info = Label(
+            self.wri, 170 // 3 - 5, 2, 316, bdcolor=False, justify=1, fgcolor=D_PINK
+        )
         self.info.value("Make your choice, make it wisely.")
 
         self.player_weapon = None  # Store the player's choice
@@ -28,23 +32,31 @@ class RpsScreen(Screen):
 
         # RadioButtons for weapon choices
         table = [
-            {'text': 'rock', 'args': ['rock']},
-            {'text': 'paper', 'args': ['paper']},
-            {'text': 'scissors', 'args': ['scissors']},
-            {'text': 'lizard', 'args': ['lizard']},
-            {'text': 'spock', 'args': ['spock']},
+            {"text": "rock", "args": ["rock"]},
+            {"text": "paper", "args": ["paper"]},
+            {"text": "scissors", "args": ["scissors"]},
+            {"text": "lizard", "args": ["lizard"]},
+            {"text": "spock", "args": ["spock"]},
         ]
         col = 1
         rb = RadioButtons(DARKGREEN, self.play_round)
         for t in table:
             rb.add_button(
-                self.wribut, 80, col, textcolor=WHITE,
-                fgcolor=GREEN, height=40, width=55, **t
+                self.wribut,
+                80,
+                col,
+                textcolor=WHITE,
+                fgcolor=GREEN,
+                height=40,
+                width=55,
+                **t,
             )
             col += 65
 
         # Label to display scores underneath the radiobuttons
-        self.score_label = Label(self.wri, 170 // 3 + 80, 2, 316, bdcolor=False, justify=1, fgcolor=D_GREEN)
+        self.score_label = Label(
+            self.wri, 170 // 3 + 80, 2, 316, bdcolor=False, justify=1, fgcolor=D_GREEN
+        )
         self.update_score()
 
     def update_score(self):
@@ -115,8 +127,8 @@ class RpsGame:
         self.round_count = 0
         self.scores = {"player": 0, "opponent": 0}
         self.last_result = ""
-        self.last_winner = None  
-        self.consecutive_winner = None  
+        self.last_winner = None
+        self.consecutive_winner = None
 
     def opponent_choice(self):
         random.seed()
@@ -176,3 +188,20 @@ class RpsGame:
             return "opponent"
         else:
             return "tie"
+
+
+def badge_game_config():
+    """
+    Configuration for Rock-Paper-Scissors-Lizard-Spock game registration.
+
+    Returns:
+        dict: Game configuration with con_id, title, screen_class, etc.
+    """
+    return {
+        "con_id": 3,
+        "title": "RPSLS (Dev)",
+        "screen_class": RpsScreen,
+        "screen_args": (),  # Connection passed separately by framework
+        "multiplayer": True,
+        "description": "Rock Paper Scissors Lizard Spock - the extended edition",
+    }

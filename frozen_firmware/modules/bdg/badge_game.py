@@ -1,13 +1,14 @@
 import asyncio
 import random
 
-from badge.asyncbutton import ButtonEvents
-from badge.games import fwdbutton
-from badge.msg import BadgeAdr, null_badge_adr
-from badge.msg.connection import NowListener
+from bdg.utils import fwdbutton
+from bdg.msg import BadgeAdr, null_badge_adr
+from bdg.msg.connection import NowListener
+from bdg.asyncbutton import ButtonEvents
 from bdg.utils import singleton, Timer
 from bdg.config import Config
 from bdg.widgets.hidden_active_widget import HiddenActiveWidget
+from bdg.screens.scan_screen import ScannerScreen
 from gui.core.colors import GREEN, BLACK, D_PINK, WHITE, D_GREEN, D_RED
 from gui.core.ugui import Screen, ssd
 from gui.core.writer import CWriter
@@ -15,121 +16,6 @@ from gui.fonts import arial35, freesans20, font10 as font10
 from gui.primitives import launch
 from gui.widgets.buttons import Button
 from gui.widgets.label import Label
-
-
-class GameScanScr(Screen):
-    """Simple scanner draft that start EspNowScanner and display results in a listbox"""
-
-    sync_update = True  # set screen update mode synchronous
-
-    def __init__(self, ready_cb=None):
-        super().__init__()
-        self.et = None
-        self.show_user_error = asyncio.Event()
-        self.show_user_error.clear()
-        self.bt = None
-        self.ready_cb = ready_cb
-        self.wrig = CWriter(ssd, arial35, GREEN, BLACK, verbose=False)
-        self.wrigs = CWriter(ssd, font10, GREEN, BLACK, verbose=False)
-        self.wrip = CWriter(ssd, freesans20, D_PINK, BLACK, verbose=False)
-
-        self.lbl_s = Label(
-            self.wrig, int(170 / 2) - 35, 2, 316, bdcolor=False, justify=1
-        )
-        self.lbl_s2 = Label(self.wrig, int(170 / 2), 2, 316, bdcolor=False, justify=1)
-
-        self.lbl_i = Label(
-            self.wrigs, int(170 / 2) + 5, 2, 316, bdcolor=False, justify=1
-        )
-        self.lbl_b = Label(
-            self.wrip, (int(170 / 3) * 2) + 5, 2, 316, bdcolor=False, justify=1
-        )
-
-        HiddenActiveWidget(self.wrig)
-        self.update_status()
-
-        self.all_events = ButtonEvents()
-
-    async def btn_handler(self):
-        async for btn, ev in self.all_events.get_btn_events():
-            self.show_user_error.set()
-
-    def after_open(self):
-        if not self.bt or self.bt.done():
-            self.bt = self.reg_task(self.btn_handler(), True)
-
-        if not self.et or self.et.done():
-            self.et = self.reg_task(self.user_error(), True)
-
-        self.reg_task(self.next_scr(), True)
-
-    def update_status(self):
-        print(">>> update_status")
-
-        b_found = len(NowListener.last_seen)
-        try:
-            b_needed = Config.config["espnow"]["b_needed"]
-        except KeyError:
-            b_needed = 5
-        self.lbl_i.visible = True
-        self.lbl_b.visible = True
-        self.lbl_s.visible = True
-        self.lbl_s2.visible = False
-        self.lbl_s2.draw = True
-        self.lbl_s.value(f"Scanning...")
-        self.lbl_i.value(f"please wait...")
-        self.lbl_b.value(f"Badges found: {b_found}/{b_needed}")
-
-    async def next_scr(self):
-        print(">>> next_scr")
-        await asyncio.sleep(10)
-        self.lbl_s.value("Ready!")
-        self.lbl_i.value("joining the lobby")
-        await asyncio.sleep(2)
-        launch(self.ready_cb, ())  # notify caller
-
-    async def user_error(self):
-        while True:
-            await self.show_user_error.wait()
-            print(">>> user_error")
-
-            ssd.fill(BLACK)
-            Screen.rfsh_start.set()
-            await Screen.rfsh_done.wait()
-            self.lbl_i.visible = False
-            self.lbl_i.draw = True
-            self.lbl_b.visible = False
-            self.lbl_b.draw = True
-            self.lbl_s.visible = True
-            self.lbl_s.value("What part don't")
-            self.lbl_s2.visible = True
-            self.lbl_s2.value("you understand?")
-            Screen.show(force=True)
-            await asyncio.sleep(3)
-            ssd.fill(BLACK)
-            self.update_status()
-            Screen.show(force=True)
-            print(">>> user_error DONE")
-            self.show_user_error.clear()
-
-
-class GameModeScr(Screen):
-    sync_update = True  # set screen update mode synchronous
-
-    def __init__(self):
-        super().__init__()
-        # verbose default indicates if fast rendering is enabled
-        wri = CWriter(ssd, font10, WHITE, BLACK, verbose=False)
-        self.nick_lbl = Label(wri, 0, 100, 120, bdcolor=False, justify=1)
-
-        row = fwdbutton(wri, 112, 30, ActiveGameScr, text="Competitive")
-        row = fwdbutton(wri, 112, 320 // 3 * 2, "CasualPuzzleScr", text="Casual")
-
-    def after_open(self):
-        self.update_score()
-
-    def update_score(self):
-        self.nick_lbl.value(Config.config["espnow"]["nick"])
 
 
 class BadgeCooldown(Exception):
@@ -172,7 +58,9 @@ class BadgeGame:
             raise BadgeCooldown("Opponent still active {opponent_timer.time_left()}s ")
         else:
             if self.opponent_cooldown_t.is_act():
-                raise BadgeCooldown("Badge in cooldown {opponent_cooldown_t.time_left()}s ")
+                raise BadgeCooldown(
+                    "Badge in cooldown {opponent_cooldown_t.time_left()}s "
+                )
 
         if len(NowListener.last_seen):
             self.opponent = random.choice(NowListener.last_seen.keys())
@@ -201,7 +89,9 @@ class GameLobbyScr(Screen):
         self.lbl_i.value("Badge is")
         self.lbl_s.value("ACTIVE")
 
-        fwdbutton(wri, 170 - 30, 135, GameModeScr, text="Play")
+        # TODO: show list of badges instead of ActiveGameScr, after selecting opponent, show game selections and after that ActiveGameScr
+        # fwdbutton(wri, 170 - 30, 135, ActiveGameScr, text="Play")
+        fwdbutton(wri, 170 - 30, 135, ScannerScreen, text="Play")
 
     def after_open(self):
         self.update_nickname()
@@ -267,16 +157,22 @@ class ActiveGameScr(Screen):
 
     def after_open(self):
         self.game = BadgeGame()
+        # TODO:
 
         if not self.game.has_opponent():
+            print("Acquiring opponent...")
             try:
                 self.opponent = self.game.acquire_opponent()
+                print("Acquired opponent:", self.opponent)
                 if self.opponent is null_badge_adr:
                     self.mode = self.MODE_NO_OPPONENT
+                    print("No opponents available")
                 else:
                     self.mode = self.MODE_READY
+                    print("Opponent ready:", self.opponent)
             except BadgeCooldown as e:
                 # FIXME: jump to cooldown screen
+                print("Badge in cooldown:", e)
                 Screen.change("CooldownScr", args=[str(e)])
         self.update_ui()
 
@@ -310,15 +206,6 @@ class ActiveGameScr(Screen):
         return "5min 30s"
 
 
-
-
-async def to_game_lobby():
-    print("to_game_lobby")
-    Screen.change(GameLobbyScr, mode=Screen.REPLACE)
-
-
 async def start_game():
     print("start_game")
-    Screen.change(
-        GameScanScr, kwargs={"ready_cb": to_game_lobby}, mode=Screen.REPLACE
-    )
+    Screen.change(GameLobbyScr, mode=Screen.REPLACE)

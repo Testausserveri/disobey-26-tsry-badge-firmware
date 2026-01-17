@@ -1,7 +1,8 @@
 import asyncio
 
-from badge.msg import BadgeAdr, null_badge_adr
-from badge.msg.connection import NowListener, Beacon
+from bdg.msg import BadgeAdr, null_badge_adr
+from bdg.msg.connection import NowListener, Beacon
+from bdg.game_registry import get_registry
 from gui.core.colors import GREEN, BLACK, RED
 from gui.core.ugui import Screen, ssd
 from gui.core.writer import CWriter
@@ -14,7 +15,10 @@ from gui.widgets.listbox import Listbox, dolittle
 
 
 class BadgeScreen(Screen):
-    def __init__(self, badge_addr: BadgeAdr = null_badge_adr, ):
+    def __init__(
+        self,
+        badge_addr: BadgeAdr = null_badge_adr,
+    ):
         self.baddr = badge_addr
 
         super().__init__()
@@ -22,28 +26,28 @@ class BadgeScreen(Screen):
 
         self.b_lbl = Label(self.wri, 5, 5, f"{badge_addr}")
 
-        self.b_lbl = Label(self.wri, 20, 5, f"Badge is ACTIVE", bdcolor=RED, fgcolor=GREEN, bgcolor=RED)
+        self.b_lbl = Label(
+            self.wri, 20, 5, f"Badge is ACTIVE", bdcolor=RED, fgcolor=GREEN, bgcolor=RED
+        )
 
-        self.s_lbl = Label(self.wri, 35, 160, 100, bdcolor=RED, fgcolor=GREEN, bgcolor=RED)
+        self.s_lbl = Label(
+            self.wri, 35, 160, 100, bdcolor=RED, fgcolor=GREEN, bgcolor=RED
+        )
 
-        self.els_friendly = [
-            "TicTacToe", # APP_ID 1
-            "React", # APP_ID 2
-            "RPSLS", # APP_ID 3
-        ]
-        self.els_competitive = [
-            "blink",  # blink opponent badge to locate 0p
-            "dagger",  # close proximity action  5p
-            "TicTactToe",  # challenge to TicTacToe 10p
-            "BreachProtocol",  # Guess what is the opponent defend key
-            "buzz",  # buzz opponents buzzer if fails to counter 10p
+        # Load games dynamically from registry
+        registry = get_registry()
+        self.games = registry.get_all_games()
+
+        # Build friendly game list from registered multiplayer games
+        self.els = [
+            game["title"] for game in self.games if game.get("multiplayer", False)
         ]
 
         self.lb = Listbox(
             self.wri,
             50,
             50,
-            elements=self.els_friendly,
+            elements=self.els,
             dlines=3,
             bdcolor=RED,
             value=1,
@@ -57,17 +61,23 @@ class BadgeScreen(Screen):
             self.s_lbl.value("Con failed!")
 
     def lbcb(self, lb):  # Listbox callback
-        if lb.textvalue() == "TicTacToe":
-            print("TicTacToe")
+        game_title = lb.textvalue()
+
+        # Find game by title
+        game_config = None
+        for game in self.games:
+            if game["title"] == game_title:
+                game_config = game
+                break
+
+        if game_config:
+            con_id = game_config["con_id"]
+            print(f"Connecting to {game_title} (con_id={con_id})")
             self.s_lbl.value("Connecting...")
-            launch(self.launch_app, (1,))
-        elif lb.textvalue() == "React":
-            self.s_lbl.value("Connecting...")
-            launch(self.launch_app, (2,))
-        elif lb.textvalue() == "RPSLS":
-            self.s_lbl.value("Connecting...")
-            launch(self.launch_app, (3,))
-        
+            launch(self.launch_app, (con_id,))
+        else:
+            print(f"Unknown game: {game_title}")
+
         print("lbcb!!!")
 
 
@@ -77,20 +87,28 @@ class ScannerScreen(Screen):
     def __init__(self):
         super().__init__()
         self.update_task = None
-        self.sort = 'last_seen'
+        self.sort = "last_seen"
         self.wri = wri = CWriter(ssd, font10, GREEN, BLACK, verbose=False)
         self.sorters = {
-            'last_seen': lambda a: a[2][0].last_seen,
-            'rssi': lambda a: a[2][0].rssi,
-            'mac': lambda a: a[2][0].mac,
+            "last_seen": lambda a: a[2][0].last_seen,
+            "rssi": lambda a: a[2][0].rssi,
+            "mac": lambda a: a[2][0].mac,
         }
 
-        els = ('last_seen', 'rssi', 'mac',)
-        self.s_dropb = Dropdown(wri, 40, 220,
-                                elements=els,
-                                dlines=5,  # Show 5 lines
-                                bdcolor=GREEN,
-                                callback=self.set_sort_cb)
+        els = (
+            "last_seen",
+            "rssi",
+            "mac",
+        )
+        self.s_dropb = Dropdown(
+            wri,
+            40,
+            220,
+            elements=els,
+            dlines=5,  # Show 5 lines
+            bdcolor=GREEN,
+            callback=self.set_sort_cb,
+        )
         self.s_dropb.textvalue(els[0])
 
         self.elements = list()
@@ -140,7 +158,10 @@ class ScannerScreen(Screen):
         comp = "C"
 
         # todo: where to import dict_view? fix this to isinstance
-        if type(badge_addr).__name__ in ('dict_view', 'list',):
+        if type(badge_addr).__name__ in (
+            "dict_view",
+            "list",
+        ):
             #   print("got list")
             for b in badge_addr:
                 self.append_list(b)
@@ -155,14 +176,23 @@ class ScannerScreen(Screen):
                 break
         else:
             if badge_addr is null_badge_adr:
-                self.elements.append(('-----', dolittle, (badge_addr,)))
+                self.elements.append(("-----", dolittle, (badge_addr,)))
             else:
                 self.elements.append(
-                    (f"[{comp}] {badge_addr.nick} [{badge_addr.rssi}dBm]", self.cb, (badge_addr,)))
+                    (
+                        f"[{comp}] {badge_addr.nick} [{badge_addr.rssi}dBm]",
+                        self.cb,
+                        (badge_addr,),
+                    )
+                )
             ui = -1
 
         if ui >= 0:
-            self.elements[ui] = (f"[{comp}]{badge_addr.nick} [{badge_addr.rssi}dBm]", self.cb, (badge_addr,))
+            self.elements[ui] = (
+                f"[{comp}]{badge_addr.nick} [{badge_addr.rssi}dBm]",
+                self.cb,
+                (badge_addr,),
+            )
 
         # sort based on user selection
         self.elements.sort(key=self.sorters[self.sort], reverse=True)

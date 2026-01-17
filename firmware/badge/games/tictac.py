@@ -2,8 +2,8 @@ import asyncio
 import random
 import time
 
-from badge.msg import AppMsg, BadgeMsg
-from badge.msg.connection import Connection, Beacon
+from bdg.msg import AppMsg, BadgeMsg
+from bdg.msg.connection import Connection, Beacon
 from bdg.widgets.meter import Meter
 from gui.core.colors import GREEN, BLACK, RED, YELLOW, MAGENTA, BLUE, DARKBLUE
 from gui.core.ugui import Screen, ssd
@@ -25,12 +25,12 @@ NEW_ROUND = 3
 
 @AppMsg.register
 class TttStart(BadgeMsg):
-    def __init__(self, iam, move: int, init: float, round: int):
+    def __init__(self, iam: str, move: int, init: float, round_num: int):
         super().__init__()
-        self.iam: bool = iam
+        self.iam: str = iam  # Player character: "x" or "o"
         self.move: int = move
         self.init: float = init
-        self.round: int = round
+        self.round_num: int = round_num
 
 
 @AppMsg.register
@@ -258,7 +258,7 @@ class TicTacToe(Screen):
                 self.g_state = TTTGame()
                 self.g_state.cp = "x" if msg.iam == "o" else "o"
                 self._first_move = False
-                self.round = msg.round
+                self.round = msg.round_num
                 # add other players move in
                 if msg.move != -1:
                     self.g_state.add_move(msg.move // 3, msg.move % 3)
@@ -543,3 +543,20 @@ class TTTGame:
         if self.is_draw():
             self._act = False
         return self._act
+
+
+def badge_game_config():
+    """
+    Configuration for TicTacToe game registration.
+
+    Returns:
+        dict: Game configuration with con_id, title, screen_class, etc.
+    """
+    return {
+        "con_id": 1,
+        "title": "TicTacToe (Dev)",
+        "screen_class": TicTacToe,
+        "screen_args": (),  # Connection passed separately by framework
+        "multiplayer": True,
+        "description": "Classic TicTacToe game between two badges",
+    }

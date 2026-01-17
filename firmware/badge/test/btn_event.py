@@ -1,5 +1,5 @@
-from badge.asyncbutton import *
-from badge.asyncbutton import ButtonEvents, ButAct
+from bdg.asyncbutton import *
+from bdg.asyncbutton import ButtonEvents, ButAct
 from hardware_setup import BtnConfig
 
 # global button event init, do once

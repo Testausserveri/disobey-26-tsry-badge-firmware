@@ -2,11 +2,22 @@
 
 # import frozen_fs mounts `frozen_fs` as `/readonly_fs`
 import frozen_fs
+import network
+import aioespnow
+import hardware_setup
+from hardware_setup import BtnConfig
+
+from gui.core.ugui import Screen, quiet
+
 from bdg.config import Config
 from bdg.version import Version
 from bdg.repl_helpers import load_app
+from bdg.screens.boot_screen import BootScr
+from bdg.game_registry import init_game_registry
 from ota import rollback as ota_rollback
 from ota import status as ota_status
+from bdg.badge_game import start_game
+from bdg.asyncbutton import ButtonEvents
 
 
 print(f"Booting..")
@@ -29,3 +40,32 @@ if not boot_partition.info()[4] == "factory":
 Config.load()
 globals()["config"] = Config()
 globals()["load_app"] = load_app
+
+
+def start_badge():
+    Config.load()
+    channel = int(Config.config["espnow"]["ch"])
+
+    # init button even machine
+    ButtonEvents.init(BtnConfig)
+
+    # Initialize game registry - scan for available games
+    init_game_registry()
+
+    sta = network.WLAN(network.STA_IF)
+    # set configured wifi channels
+    sta.active(True)
+    sta.config(channel=channel)
+    sta.config(txpower=10)
+    e = aioespnow.AIOESPNow()
+    e.active(True)
+
+    # TODO: WE need to define channel
+    own_mac = sta.config("mac")
+
+    quiet()
+
+    Screen.change(BootScr, kwargs={"ready_cb": start_game, "espnow": e, "sta": sta})
+
+
+start_badge()

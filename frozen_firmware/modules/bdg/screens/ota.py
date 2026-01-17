@@ -57,13 +57,13 @@ class OTAScreen(Screen):
         self.sta.active(True)
         asyncio.sleep_ms(100)
         if self.espnow:
-            from badge.msg.connection import NowListener
+            from bdg.msg.connection import NowListener
 
             NowListener.start(self.espnow)
 
     async def start_ota(self, sta, ssid, password):
         if self.espnow:
-            from badge.msg.connection import NowListener
+            from bdg.msg.connection import NowListener
 
             NowListener.stop()
         # Reset sta activity before we start

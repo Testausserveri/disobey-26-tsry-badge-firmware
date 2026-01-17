@@ -1,7 +1,7 @@
 import asyncio
 
-from badge.msg import BadgeAdr, null_badge_adr
-from badge.msg.connection import NowListener, Beacon
+from bdg.msg import BadgeAdr, null_badge_adr
+from bdg.msg.connection import NowListener, Beacon
 from gui.core.colors import GREEN, BLACK, RED, D_PINK, WHITE, D_GREEN
 from gui.core.ugui import Screen, ssd
 from gui.core.writer import CWriter
