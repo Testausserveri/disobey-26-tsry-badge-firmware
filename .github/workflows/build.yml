@@ -185,49 +185,33 @@ jobs:
         with:
           python-version: '3.11'
       
-      - name: Configure AWS CLI for S3
+      - name: Install s3cmd
         if: vars.S3_ENDPOINT != ''
         run: |
-          pip install awscli
-          aws configure set aws_access_key_id ${{ secrets.S3_ACCESS_KEY_ID }}
-          aws configure set aws_secret_access_key ${{ secrets.S3_SECRET_ACCESS_KEY }}
-          aws configure set default.region us-east-1
+          pip install s3cmd
       
       - name: Upload to S3
         if: vars.S3_ENDPOINT != ''
         env:
+          S3_ACCESS_KEY_ID: ${{ secrets.S3_ACCESS_KEY_ID }}
+          S3_SECRET_ACCESS_KEY: ${{ secrets.S3_SECRET_ACCESS_KEY }}
           S3_ENDPOINT: ${{ vars.S3_ENDPOINT }}
           S3_BUCKET: ${{ vars.S3_BUCKET }}
           TAG_NAME: ${{ needs.build.outputs.tag_name }}
-          AWS_S3_SIGNATURE_VERSION: s3v4
         run: |
-          echo "📦 Uploading firmware to S3..."
-          
-          # Upload using aws s3 cp as recommended by UpCloud
-          aws s3 cp dist/full_firmware.bin \
-            s3://${S3_BUCKET}/firmware/${TAG_NAME}/full_firmware.bin \
-            --endpoint-url ${S3_ENDPOINT}
-          
-          aws s3 cp dist/ota_firmware.bin \
-            s3://${S3_BUCKET}/firmware/${TAG_NAME}/ota_firmware.bin \
-            --endpoint-url ${S3_ENDPOINT}
-          
-          # Upload as "latest" for easy access
-          aws s3 cp dist/full_firmware.bin \
-            s3://${S3_BUCKET}/firmware/latest/full_firmware.bin \
-            --endpoint-url ${S3_ENDPOINT}
-          
-          aws s3 cp dist/ota_firmware.bin \
-            s3://${S3_BUCKET}/firmware/latest/ota_firmware.bin \
-            --endpoint-url ${S3_ENDPOINT}
-          
-          echo "✅ Uploaded to S3:"
-          echo "  - ${S3_ENDPOINT}/${S3_BUCKET}/firmware/${TAG_NAME}/"
-          echo "  - ${S3_ENDPOINT}/${S3_BUCKET}/firmware/latest/"
+          chmod +x scripts/upload_firmware_to_s3.sh
+          ./scripts/upload_firmware_to_s3.sh \
+            "${TAG_NAME}" \
+            "dist/full_firmware.bin" \
+            "dist/ota_firmware.bin" \
+            "${S3_BUCKET}" \
+            "${S3_ENDPOINT}"
       
       - name: Update ota.json
         if: vars.S3_ENDPOINT != ''
         env:
+          S3_ACCESS_KEY_ID: ${{ secrets.S3_ACCESS_KEY_ID }}
+          S3_SECRET_ACCESS_KEY: ${{ secrets.S3_SECRET_ACCESS_KEY }}
           S3_ENDPOINT: ${{ vars.S3_ENDPOINT }}
           S3_BUCKET: ${{ vars.S3_BUCKET }}
           TAG_NAME: ${{ needs.build.outputs.tag_name }}

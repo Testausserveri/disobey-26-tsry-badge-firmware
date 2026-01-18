@@ -33,14 +33,47 @@ echo "Size: $FIRMWARE_SIZE bytes"
 # Construct the firmware URL
 FIRMWARE_URL="${S3_ENDPOINT}/${S3_BUCKET}/firmware/${VERSION}/ota_firmware.bin"
 
+# Extract hostname from endpoint URL
+S3_HOST=$(echo "${S3_ENDPOINT}" | sed 's|https://||' | sed 's|http://||')
+
+# Check if s3cmd is available
+if ! command -v s3cmd &> /dev/null; then
+    echo "Installing s3cmd..."
+    pip install s3cmd
+fi
+
+echo "Using s3cmd for S3 operations"
+
 # Download existing ota.json or create new one
 OTA_JSON="ota.json"
 echo "Downloading existing ota.json..."
-if aws s3 cp "s3://${S3_BUCKET}/ota.json" "$OTA_JSON" --endpoint-url "$S3_ENDPOINT" 2>/dev/null; then
+if s3cmd --access_key="${S3_ACCESS_KEY_ID}" \
+    --secret_key="${S3_SECRET_ACCESS_KEY}" \
+    --host="${S3_HOST}" \
+    --host-bucket='%(bucket)s.'"${S3_HOST}" \
+    get "s3://${S3_BUCKET}/ota.json" "$OTA_JSON" 2>/dev/null; then
     echo "✓ Downloaded existing ota.json"
 else
     echo "⚠ ota.json not found, creating new one"
     cat > "$OTA_JSON" <<EOF
+{
+  "latest": "",
+  "versions": {}
+}
+EOF
+fi
+EOF
+    fi
+else
+    if s3cmd --access_key="${S3_ACCESS_KEY_ID}" \
+        --secret_key="${S3_SECRET_ACCESS_KEY}" \
+        --host="${S3_HOST}" \
+        --host-bucket='%(bucket)s.'"${S3_HOST}" \
+        get "s3://${S3_BUCKET}/ota.json" "$OTA_JSON" 2>/dev/null; then
+        echo "✓ Downloaded existing ota.json"
+    else
+        echo "⚠ ota.json not found, creating new one"
+        cat > "$OTA_JSON" <<EOF
 {
   "latest": "",
   "versions": {}
@@ -86,8 +119,12 @@ echo "Updated ota.json contents:"
 cat "$OTA_JSON"
 echo ""
 
-# Upload updated ota.json back to S3
-echo "Uploading ota.json to S3..."
-aws s3 cp "$OTA_JSON" "s3://${S3_BUCKET}/ota.json" --endpoint-url "$S3_ENDPOINT"
+# Upload updated ota.json back to S3 using s3cmd (AWS CLI has SHA256 issues)
+echo "Uploading ota.json to S3 using s3cmd..."
+s3cmd --access_key="${S3_ACCESS_KEY_ID}" \
+    --secret_key="${S3_SECRET_ACCESS_KEY}" \
+    --host="${S3_HOST}" \
+    --host-bucket='%(bucket)s.'"${S3_HOST}" \
+    put "$OTA_JSON" "s3://${S3_BUCKET}/ota.json"
 
 echo "✅ ota.json updated successfully!"
