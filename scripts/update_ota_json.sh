@@ -62,24 +62,6 @@ else
 }
 EOF
 fi
-EOF
-    fi
-else
-    if s3cmd --access_key="${S3_ACCESS_KEY_ID}" \
-        --secret_key="${S3_SECRET_ACCESS_KEY}" \
-        --host="${S3_HOST}" \
-        --host-bucket='%(bucket)s.'"${S3_HOST}" \
-        get "s3://${S3_BUCKET}/ota.json" "$OTA_JSON" 2>/dev/null; then
-        echo "✓ Downloaded existing ota.json"
-    else
-        echo "⚠ ota.json not found, creating new one"
-        cat > "$OTA_JSON" <<EOF
-{
-  "latest": "",
-  "versions": {}
-}
-EOF
-fi
 
 # Update the JSON using Python
 python3 << PYTHON_SCRIPT
