@@ -299,7 +299,6 @@ async def global_buttons(espnow=None, sta=None):
         [
             ("btn_select", ButAct.ACT_DOUBLE),
             ("btn_b", ButAct.ACT_LONG),
-            ("btn_start", ButAct.ACT_LONG),
         ],
     )
 
@@ -312,8 +311,6 @@ async def global_buttons(espnow=None, sta=None):
             OptionScreen, kwargs={"espnow": espnow, "sta": sta}, base_screen=base_screen
         ),
         "btn_b": handle_back,
-        "btn_start": lambda ev: print(f"btn_start {ev}")
-        or change_app(ScannerScreen, base_screen=base_screen),
     }
 
     async for btn, ev in be.get_btn_events():
