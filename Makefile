@@ -90,8 +90,25 @@ clean:
 	rm -fr micropython/ports/esp32/build-ESP32_GENERIC_S3-DEVKITW2
 
 # Version bumping (BUMP_TYPE can be: major, minor, patch)
-BUMP_TYPE ?= patch
+BUMP_TYPE ?=
 bump_version:
+	@if [ -z "$(BUMP_TYPE)" ]; then \
+		echo "Error: BUMP_TYPE not specified"; \
+		echo ""; \
+		echo "Usage: make bump_version BUMP_TYPE=<level>"; \
+		echo ""; \
+		echo "Bump levels:"; \
+		echo "  patch  - Bug fixes (e.g., v0.0.1 → v0.0.2)"; \
+		echo "  minor  - New features (e.g., v0.1.0 → v0.2.0)"; \
+		echo "  major  - Breaking changes (e.g., v1.0.0 → v2.0.0)"; \
+		echo ""; \
+		echo "Examples:"; \
+		echo "  make bump_version BUMP_TYPE=patch"; \
+		echo "  make bump_version BUMP_TYPE=minor"; \
+		echo "  make bump_version BUMP_TYPE=major"; \
+		echo ""; \
+		exit 1; \
+	fi
 	@echo "Bumping $(BUMP_TYPE) version..."
 	@./scripts/bump_version.sh $(BUMP_TYPE)
 	@NEW_VERSION=$$(cat frozen_fs/VERSION) && \
@@ -103,7 +120,7 @@ bump_version:
 	echo "✅ Version bumped and tagged: $$NEW_VERSION"
 
 # Release process: bump version, commit, tag, and build firmware
-# Usage: make release BUMP_TYPE=minor (defaults to patch)
+# Usage: make release BUMP_TYPE=<level>
 # Note: Tags are LOCAL until you push. Use 'git push origin main --tags' to publish.
 release: bump_version
 	@echo "=== Starting Release Build ==="
