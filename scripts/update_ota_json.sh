@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-# Script to update OTA.json with new firmware version
+# Script to update ota.json with new firmware version
 # Usage: ./update_ota_json.sh <version> <firmware_path> <s3_bucket> <s3_endpoint>
 
 VERSION="$1"
@@ -19,7 +19,7 @@ if [ ! -f "$FIRMWARE_PATH" ]; then
     exit 1
 fi
 
-echo "=== Updating OTA.json ==="
+echo "=== Updating ota.json ==="
 echo "Version: $VERSION"
 echo "Firmware: $FIRMWARE_PATH"
 
@@ -33,13 +33,13 @@ echo "Size: $FIRMWARE_SIZE bytes"
 # Construct the firmware URL
 FIRMWARE_URL="${S3_ENDPOINT}/${S3_BUCKET}/firmware/${VERSION}/ota_firmware.bin"
 
-# Download existing OTA.json or create new one
+# Download existing ota.json or create new one
 OTA_JSON="ota.json"
-echo "Downloading existing OTA.json..."
-if aws s3 cp "s3://${S3_BUCKET}/OTA.json" "$OTA_JSON" --endpoint-url "$S3_ENDPOINT" 2>/dev/null; then
-    echo "✓ Downloaded existing OTA.json"
+echo "Downloading existing ota.json..."
+if aws s3 cp "s3://${S3_BUCKET}/ota.json" "$OTA_JSON" --endpoint-url "$S3_ENDPOINT" 2>/dev/null; then
+    echo "✓ Downloaded existing ota.json"
 else
-    echo "⚠ OTA.json not found, creating new one"
+    echo "⚠ ota.json not found, creating new one"
     cat > "$OTA_JSON" <<EOF
 {
   "latest": "",
@@ -78,16 +78,16 @@ with open('$OTA_JSON', 'w') as f:
     json.dump(data, f, indent=2)
     f.write('\n')  # Add trailing newline
 
-print(f"✓ Updated OTA.json with version $VERSION")
+print(f"✓ Updated ota.json with version $VERSION")
 PYTHON_SCRIPT
 
 echo ""
-echo "Updated OTA.json contents:"
+echo "Updated ota.json contents:"
 cat "$OTA_JSON"
 echo ""
 
-# Upload updated OTA.json back to S3
-echo "Uploading OTA.json to S3..."
-aws s3 cp "$OTA_JSON" "s3://${S3_BUCKET}/OTA.json" --endpoint-url "$S3_ENDPOINT"
+# Upload updated ota.json back to S3
+echo "Uploading ota.json to S3..."
+aws s3 cp "$OTA_JSON" "s3://${S3_BUCKET}/ota.json" --endpoint-url "$S3_ENDPOINT"
 
-echo "✅ OTA.json updated successfully!"
+echo "✅ ota.json updated successfully!"

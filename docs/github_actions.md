@@ -22,7 +22,7 @@ This single unified workflow handles both regular builds and releases.
 
 **Additional steps for tagged builds:**
 - Uploads firmware to S3-compatible storage (uocloud.com)
-- Updates OTA.json with version info (URL, SHA256, size)
+- Updates ota.json with version info (URL, SHA256, size)
 
 **Caching Strategy:**
 - ESP-IDF installation (~1GB) - Speeds up builds significantly
@@ -100,7 +100,7 @@ git push origin main --tags
 Once the tag is pushed, GitHub Actions automatically:
 - ✅ Builds firmware at that tagged commit
 - ✅ Uploads to S3 storage (if configured)
-- ✅ Updates OTA.json with version metadata
+- ✅ Updates ota.json with version metadata
 
 **That's it!** The entire release process is automated after you push the tag.
 
@@ -138,7 +138,7 @@ Firmware is uploaded to S3 with the following structure:
 
 ```
 s3://your-bucket/
-  OTA.json                      # Version manifest for OTA updates
+  ota.json                      # Version manifest for OTA updates
   firmware/
     v0.0.2-abc1234/            # Version-specific
       full_firmware.bin
@@ -148,9 +148,9 @@ s3://your-bucket/
       ota_firmware.bin
 ```
 
-#### OTA.json Format
+#### ota.json Format
 
-The `OTA.json` file at the bucket root tracks all released versions:
+The `ota.json` file at the bucket root tracks all released versions:
 
 ```json
 {

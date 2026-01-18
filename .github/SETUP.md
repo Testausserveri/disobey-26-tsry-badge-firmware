@@ -92,13 +92,13 @@ Once the tag is pushed to GitHub, the workflow automatically:
 - ✅ Detects it's a tagged build
 - ✅ Builds firmware at that tag
 - ✅ Uploads to S3 (if configured)
-- ✅ Updates OTA.json
+- ✅ Updates ota.json
 
 **Monitor the release:**
 1. Go to **Actions** tab
 2. You'll see "Build Firmware" workflow running
 3. In the logs, look for "This is a release: v0.0.2-xxxxx"
-4. Watch the S3 upload and OTA.json update steps
+4. Watch the S3 upload and ota.json update steps
 5. Verify firmware in S3 bucket
 
 ## 📊 Step 6: Monitor and Verify
@@ -185,7 +185,7 @@ You're all set when:
 - ✅ Build completes in <20 min (first time) or <10 min (cached)
 - ✅ Tagged commits trigger release build
 - ✅ S3 storage contains firmware (if configured)
-- ✅ OTA.json is updated with each release
+- ✅ ota.json is updated with each release
 - ✅ Tags are created and pushed automatically
 
 ---
