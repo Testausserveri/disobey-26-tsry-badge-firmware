@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - main
+    tags:
+      - 'v*'  # Also trigger on version tags
   pull_request:
     branches:
       - main
@@ -117,3 +119,70 @@ jobs:
           echo ""
           echo "=== Artifacts ==="
           ls -lh dist/ || echo "No dist directory"
+      
+      # Release steps - only run when a version tag is pushed
+      - name: Check if this is a release
+        id: is_release
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            echo "is_release=true" >> $GITHUB_OUTPUT
+            TAG_NAME=${GITHUB_REF#refs/tags/}
+            echo "tag_name=${TAG_NAME}" >> $GITHUB_OUTPUT
+            echo "This is a release: ${TAG_NAME}"
+          else
+            echo "is_release=false" >> $GITHUB_OUTPUT
+            echo "This is not a release build"
+          fi
+      
+      - name: Configure AWS CLI for S3
+        if: steps.is_release.outputs.is_release == 'true' && vars.S3_ENDPOINT != '' && secrets.S3_ACCESS_KEY_ID != ''
+        run: |
+          pip install awscli
+          aws configure set aws_access_key_id ${{ secrets.S3_ACCESS_KEY_ID }}
+          aws configure set aws_secret_access_key ${{ secrets.S3_SECRET_ACCESS_KEY }}
+          aws configure set default.region us-east-1
+      
+      - name: Upload to S3
+        if: steps.is_release.outputs.is_release == 'true' && vars.S3_ENDPOINT != '' && secrets.S3_ACCESS_KEY_ID != ''
+        env:
+          S3_ENDPOINT: ${{ vars.S3_ENDPOINT }}
+          S3_BUCKET: ${{ vars.S3_BUCKET }}
+          TAG_NAME: ${{ steps.is_release.outputs.tag_name }}
+        run: |
+          echo "📦 Uploading firmware to S3..."
+          
+          aws s3 cp dist/full_firmware.bin \
+            s3://${S3_BUCKET}/firmware/${TAG_NAME}/full_firmware.bin \
+            --endpoint-url ${S3_ENDPOINT}
+          
+          aws s3 cp dist/ota_firmware.bin \
+            s3://${S3_BUCKET}/firmware/${TAG_NAME}/ota_firmware.bin \
+            --endpoint-url ${S3_ENDPOINT}
+          
+          # Upload as "latest" for easy access
+          aws s3 cp dist/full_firmware.bin \
+            s3://${S3_BUCKET}/firmware/latest/full_firmware.bin \
+            --endpoint-url ${S3_ENDPOINT}
+          
+          aws s3 cp dist/ota_firmware.bin \
+            s3://${S3_BUCKET}/firmware/latest/ota_firmware.bin \
+            --endpoint-url ${S3_ENDPOINT}
+          
+          echo "✅ Uploaded to S3:"
+          echo "  - ${S3_ENDPOINT}/${S3_BUCKET}/firmware/${TAG_NAME}/"
+          echo "  - ${S3_ENDPOINT}/${S3_BUCKET}/firmware/latest/"
+      
+      - name: Update OTA.json
+        if: steps.is_release.outputs.is_release == 'true' && vars.S3_ENDPOINT != '' && secrets.S3_ACCESS_KEY_ID != ''
+        env:
+          S3_ENDPOINT: ${{ vars.S3_ENDPOINT }}
+          S3_BUCKET: ${{ vars.S3_BUCKET }}
+          TAG_NAME: ${{ steps.is_release.outputs.tag_name }}
+        run: |
+          chmod +x scripts/update_ota_json.sh
+          ./scripts/update_ota_json.sh \
+            "${TAG_NAME}" \
+            "dist/ota_firmware.bin" \
+            "${S3_BUCKET}" \
+            "${S3_ENDPOINT}"
+      

@@ -1,0 +1,83 @@
+stages:
+  - prepare
+  - build
+  - release
+
+workflow:
+  rules:
+    # Prevent builds when tag is created in CI
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      when: always
+    - when: never
+
+.before_script_template: &before_script_tmpl
+  before_script:
+    - apt-get update -y
+    - apt-get install -y build-essential libffi-dev libssl-dev python3 python3-pip python3-venv git libusb-1.0-0 cmake pkg-config wget flex bison gperf ninja-build ccache  dfu-util
+
+install_dependencies:
+  <<: *before_script_tmpl
+  tags:
+    - ubuntu
+  stage: prepare
+  script:
+    - git config --global credential.helper store
+    - git config --global credential.useHttpPath true
+    - |
+        git credential approve <<EOF
+        protocol=https
+        host=gitlab.montel.fi
+        path=disobey/2025/micropython.git
+        username=gitlab-ci-token
+        password=${CI_JOB_TOKEN}
+        EOF
+    - sed -i 's|git@gitlab.montel.fi:disobey/2025/micropython.git|https://gitlab.montel.fi/disobey/2025/micropython|g' .gitmodules
+    - cat .gitmodules
+    - git submodule sync
+    - git submodule update --init --recursive --depth 1
+
+build_firmware:
+  <<: *before_script_tmpl
+  tags:
+    - ubuntu
+  stage: build
+  script:
+    - rm -fr micropython/ports/esp32/build-ESP32_GENERIC_S3-DEVKITW2
+    - cd micropython/mpy-cross && make clean && make && cd -
+    - make build_firmware
+    - cp micropython/ports/esp32/build-ESP32_GENERIC_S3-DEVKITW2//firmware.bin dist/full_firmware.bin
+    - cp micropython/ports/esp32/build-ESP32_GENERIC_S3-DEVKITW2/micropython.bin dist/ota_firmware.bin
+  after_script:
+    - echo "FW_VERSION=$(cat frozen_fs/VERSION)" >> job.env
+    - echo "JOB_ID=$CI_JOB_ID" >> job.env
+  artifacts:
+    paths:
+      - ./dist/full_firmware.bin
+      - ./dist/ota_firmware.bin
+    reports:
+      dotenv: job.env
+
+release_job:
+  tags:
+    - ubuntu
+  stage: release
+  image: registry.gitlab.com/gitlab-org/release-cli:latest
+  needs:
+    - job: build_firmware
+      artifacts: true
+  script:
+    - echo "running release_job for $TAG"
+  release: 
+    tag_name: '${FW_VERSION}-${CI_COMMIT_SHORT_SHA}'         
+    description: '${FW_VERSION}-${CI_COMMIT_SHORT_SHA}'    
+    ref: '${CI_COMMIT_SHA}'     
+    assets:
+      links:
+        - name: 'full  fw'
+          filepath: /full_firmware.bin
+          url: https://gitlab.montel.fi/disobey/2025/badgefirmware/-/jobs/${JOB_ID}/artifacts/file/dist/full_firmware.bin
+          link_type: 'package'
+        - name: 'ota fw'
+          filepath: /ota_firmware.bin    
+          url: https://gitlab.montel.fi/disobey/2025/badgefirmware/-/jobs/${JOB_ID}/artifacts/file/dist/ota_firmware.bin        
+          link_type: 'package'     

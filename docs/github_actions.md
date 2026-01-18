@@ -1,21 +1,28 @@
 # GitHub Actions CI/CD Setup
 
-This document describes the GitHub Actions workflows for building and releasing the Disobey Badge 2025 firmware.
+This document describes the GitHub Actions workflow for building and releasing the Disobey Badge 2025 firmware.
 
-## Workflows
+## Workflow
 
-### 1. Build Firmware (`.github/workflows/build.yml`)
+### Build & Release (`.github/workflows/build.yml`)
+
+This single unified workflow handles both regular builds and releases.
 
 **Triggers:**
-- Every push to `main` branch
-- Every pull request to `main` branch
+- Every push to `main` branch → **Build only**
+- Every pull request to `main` branch → **Build only**
+- Push of tags starting with `v` (e.g., `v1.0.0`) → **Build + Release**
 
-**What it does:**
+**What it does (all builds):**
 - Checks out code with submodules
 - Installs system dependencies and Python packages
 - Caches ESP-IDF, mpy-cross, and build artifacts for faster builds
 - Builds the normal firmware
 - Uploads firmware artifacts (retained for 30 days)
+
+**Additional steps for tagged builds:**
+- Uploads firmware to S3-compatible storage (uocloud.com)
+- Updates OTA.json with version info (URL, SHA256, size)
 
 **Caching Strategy:**
 - ESP-IDF installation (~1GB) - Speeds up builds significantly
@@ -24,22 +31,7 @@ This document describes the GitHub Actions workflows for building and releasing 
 
 **First build:** ~15-20 minutes  
 **Subsequent builds:** ~5-10 minutes (with cache)
-
-### 2. Release Firmware (`.github/workflows/release.yml`)
-
-**Triggers:**
-- Automatically when a tag starting with `v` is pushed (e.g., `v1.0.0`, `v0.0.2`)
-
-**What it does:**
-1. Checks out code at the tagged commit
-2. Builds firmware with `make build_firmware`
-3. Copies firmware files:
-   - `firmware.bin` → `full_firmware.bin`
-   - `micropython.bin` → `ota_firmware.bin`
-4. Uploads firmware to S3-compatible storage (uocloud.com)
-5. Creates GitHub Release with binaries attached
-
-**Duration:** ~10-15 minutes
+**Release:** ~10-15 minutes
 
 ## Configuration
 
@@ -80,42 +72,45 @@ Builds run automatically on every push to `main`:
 
 ### Creating a Release
 
-To create a new release, use the local `make release` command which handles version bumping, tagging, and building:
+The release process is simple and automatic:
 
+**Step 1: Bump version and create tag locally**
 ```bash
 # Create a patch release (e.g., v0.0.1 → v0.0.2)
 make release
 
-# Create a minor release (e.g., v0.1.0 → v0.2.0)
-make release BUMP_TYPE=minor
-
-# Create a major release (e.g., v1.0.0 → v2.0.0)
-make release BUMP_TYPE=major
+# Or for different bump types:
+make release BUMP_TYPE=minor  # v0.1.0 → v0.2.0
+make release BUMP_TYPE=major  # v1.0.0 → v2.0.0
 ```
 
-The `make release` command will:
-1. ✅ Bump version in `frozen_fs/VERSION`
-2. ✅ Commit the change
-3. ✅ Create a local git tag (e.g., `v0.0.2-abc1234`)
-4. ✅ Build firmware with that tag embedded
-5. ✅ Show instructions for publishing
+This will:
+- ✅ Bump version in `frozen_fs/VERSION`
+- ✅ Commit the change
+- ✅ Create a local git tag (e.g., `v0.0.2-abc1234`)
+- ✅ Build firmware locally (optional verification)
 
-**To publish the release:**
+**Step 2: Push the tag to GitHub**
 ```bash
-# Push the tag to GitHub - this triggers the release workflow
 git push origin main --tags
 ```
 
-Once the tag is pushed, GitHub Actions will automatically:
-- Build the firmware at that tagged commit
-- Upload to S3 storage (if configured)
-- Create GitHub Release with downloadable binaries
+**Step 3: Watch GitHub Actions**
+
+Once the tag is pushed, GitHub Actions automatically:
+- ✅ Builds firmware at that tagged commit
+- ✅ Uploads to S3 storage (if configured)
+- ✅ Updates OTA.json with version metadata
+
+**That's it!** The entire release process is automated after you push the tag.
+
+Firmware artifacts are stored in S3 and can be downloaded from there or accessed via the OTA system.
 
 **Alternative: Manual tag creation**
 
-You can also create tags manually:
+You can also create tags manually without using `make release`:
 ```bash
-# Create and push a tag directly
+# Create a tag directly
 git tag v1.0.0
 git push origin v1.0.0
 ```
@@ -143,20 +138,43 @@ Firmware is uploaded to S3 with the following structure:
 
 ```
 s3://your-bucket/
+  OTA.json                      # Version manifest for OTA updates
   firmware/
-    v0.0.2-abc1234/          # Version-specific
-      firmware_normal.bin
+    v0.0.2-abc1234/            # Version-specific
       full_firmware.bin
       ota_firmware.bin
-    latest/                   # Always points to latest
-      firmware_normal.bin
+    latest/                     # Always points to latest
+      full_firmware.bin
       ota_firmware.bin
 ```
 
-This allows you to:
-- Download specific versions by tag
-- Always get the latest firmware from `/latest/` path
-- Implement OTA updates pointing to `/latest/ota_firmware.bin`
+#### OTA.json Format
+
+The `OTA.json` file at the bucket root tracks all released versions:
+
+```json
+{
+  "latest": "v0.0.2-abc1234",
+  "versions": {
+    "v0.0.2-abc1234": {
+      "url": "https://s3.uocloud.com/bucket/firmware/v0.0.2-abc1234/ota_firmware.bin",
+      "sha256": "abc123...",
+      "size": 1234567
+    },
+    "v0.0.1-def5678": {
+      "url": "https://s3.uocloud.com/bucket/firmware/v0.0.1-def5678/ota_firmware.bin",
+      "sha256": "def456...",
+      "size": 1234000
+    }
+  }
+}
+```
+
+This allows badges to:
+- Check current latest version
+- Download firmware with verified SHA256 checksum
+- Display firmware size before downloading
+- Implement OTA updates pointing to the `latest` field
 
 ## Troubleshooting
 
@@ -206,15 +224,16 @@ This is expected for the first build. Subsequent builds should be faster:
 ✅ Native GitHub integration  
 ✅ Free for public repos  
 ✅ Better UI and logs  
-✅ Workflow visualization  
+✅ Workflow visualization
+✅ **Single unified workflow** for build and release
 
 ### Differences
-- GitLab: Uses `gitlab-ci.yml`  
-- GitHub: Uses `.github/workflows/*.yml`
+- GitLab: Uses separate jobs for build and release
+- GitHub: Single workflow with conditional release steps
 - GitLab: Artifact links in release  
 - GitHub: Binary files attached to release
-- GitLab: S3 upload in release job  
-- GitHub: S3 upload in same workflow step
+- GitLab: Manual workflow trigger for release
+- GitHub: Automatic release on tag push
 
 ## Local Testing
 
