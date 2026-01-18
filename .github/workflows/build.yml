@@ -2,10 +2,8 @@ name: Build Firmware
 
 on:
   push:
-    branches:
-      - main
     tags:
-      - 'v*'  # Also trigger on version tags
+      - 'v*'  # Only build on version tags
   pull_request:
     branches:
       - main
@@ -14,29 +12,12 @@ jobs:
   build:
     runs-on: ubuntu-latest
     
-    outputs:
-      is_release: ${{ steps.is_release.outputs.is_release }}
-      tag_name: ${{ steps.is_release.outputs.tag_name }}
-    
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           submodules: recursive
           fetch-depth: 0
-      
-      - name: Check if this is a release
-        id: is_release
-        run: |
-          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
-            echo "is_release=true" >> $GITHUB_OUTPUT
-            TAG_NAME=${GITHUB_REF#refs/tags/}
-            echo "tag_name=${TAG_NAME}" >> $GITHUB_OUTPUT
-            echo "This is a release: ${TAG_NAME}"
-          else
-            echo "is_release=false" >> $GITHUB_OUTPUT
-            echo "This is not a release build"
-          fi
       
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -139,7 +120,7 @@ jobs:
   
   release:
     needs: build
-    if: needs.build.outputs.is_release == 'true'
+    if: github.ref_type == 'tag' && startsWith(github.ref_name, 'v')
     runs-on: ubuntu-latest
     
     steps:
@@ -169,7 +150,7 @@ jobs:
           S3_SECRET_ACCESS_KEY: ${{ secrets.S3_SECRET_ACCESS_KEY }}
           S3_ENDPOINT: ${{ vars.S3_ENDPOINT }}
           S3_BUCKET: ${{ vars.S3_BUCKET }}
-          TAG_NAME: ${{ needs.build.outputs.tag_name }}
+          TAG_NAME: ${{ github.ref_name }}
         run: |
           chmod +x scripts/upload_firmware_to_s3.sh
           ./scripts/upload_firmware_to_s3.sh \
@@ -186,7 +167,7 @@ jobs:
           S3_SECRET_ACCESS_KEY: ${{ secrets.S3_SECRET_ACCESS_KEY }}
           S3_ENDPOINT: ${{ vars.S3_ENDPOINT }}
           S3_BUCKET: ${{ vars.S3_BUCKET }}
-          TAG_NAME: ${{ needs.build.outputs.tag_name }}
+          TAG_NAME: ${{ github.ref_name }}
         run: |
           chmod +x scripts/update_ota_json.sh
           ./scripts/update_ota_json.sh \
