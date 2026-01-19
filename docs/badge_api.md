@@ -6,6 +6,8 @@ This document describes the API functions available for interacting with the Dis
 
 - [Global Objects](#global-objects)
   - [`config`](#config)
+  - [`load_app`](#load_app)
+  - [`badge_help()`](#badge_help)
 - [Configuration API](#configuration-api)
   - [WiFi Configuration](#wifi-configuration)
     - [`Config.set_wifi(ssid: str, key: str)`](#configset_wifissid-str-key-str)
@@ -28,6 +30,54 @@ A global `Config` instance that provides access to badge configuration and setti
 <Config object at 0x...>
 >>> config.config
 {'ota': {'host': '...', 'wifi': {'ssid': '...', 'password': '...'}}, 'espnow': {...}}
+```
+
+### `load_app()`
+
+A development utility function for loading and testing applications/games.
+
+**Example:**
+
+```python
+>>> load_app("badge.options", "OptionScreen", with_espnow=True, with_sta=True)
+```
+
+### `badge_help()`
+
+Prints helpful information about the badge development environment, available commands, and system status.
+
+**Features:**
+- Displays MicroPython version
+- Shows badge firmware version and build info
+- Reports memory usage (free and allocated)
+- Lists available REPL commands and utilities
+
+**Example:**
+
+```python
+>>> badge_help()
+
+==================================================
+🔌 Badge Development Environment
+==================================================
+MicroPython: 3.4.0; MicroPython 78680ea77 on 2026-01-19
+Badge Version: (development mode)
+Badge Build: abc1234
+
+Memory:
+  Free: 8312128 bytes
+  Allocated: 9488 bytes
+
+==================================================
+Available commands:
+==================================================
+  load_app(app_name)     - Load a specific app/game
+  config                 - Access badge configuration
+  badge_help()           - Print this help message
+  gc.collect()           - Force garbage collection
+
+Documentation: Check Badge API docs in Github
+==================================================
 ```
 
 This object is automatically created at boot time, so you can use it immediately in the REPL without importing.

@@ -126,6 +126,36 @@ This initializes the display, buttons, and starts the main badge interface. The 
 
 **Important**: Every time you connect to REPL with mounted firmware, you need to run `import badge.main` to see the UI.
 
+### Development Utilities
+
+The badge provides several development utilities automatically available in the REPL:
+
+#### `badge_help()`
+
+Get information about the badge development environment, available commands, and system status:
+
+```python
+>>> badge_help()
+# Prints MicroPython version, badge firmware version, memory info, and available commands
+```
+
+#### `config`
+
+Access badge configuration (already initialized):
+
+```python
+>>> config.config
+{'ota': {...}, 'espnow': {...}, ...}
+```
+
+#### `load_app()`
+
+Load specific applications or games for testing:
+
+```python
+>>> load_app("badge.options", "OptionScreen", with_espnow=True, with_sta=True)
+```
+
 ### Multiple Devices Connected
 
 When you have more than one device connected, you might want to specify the device where you connect or deploy firmware. Here are a few examples:
