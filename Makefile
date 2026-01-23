@@ -76,6 +76,21 @@ repl_with_firmware_dir:
 		$(PYTHON) micropython/tools/mpremote/mpremote.py baud 460800 connect $$PORT mount -l firmware; \
 	fi
 
+dev_exec:
+	@echo "Executing command with firmware directory mounted..."
+	@if [ -z "$(CMD)" ]; then \
+		echo "Error: No command specified"; \
+		echo "Usage: make dev_exec CMD='<command>'"; \
+		echo "Example: make dev_exec CMD='load_app(\"badge.option_screen\", \"OptionScreen\", with_espnow=True, with_sta=True)'"; \
+		exit 1; \
+	fi
+	FW_TYPE=$(FW_TYPE) source ./set_environ.sh
+	@if [ -z "$$PORT" ]; then \
+		$(PYTHON) micropython/tools/mpremote/mpremote.py baud 460800 u0 mount -l firmware exec '$(CMD)'; \
+	else \
+		$(PYTHON) micropython/tools/mpremote/mpremote.py baud 460800 connect $$PORT mount -l firmware exec '$(CMD)'; \
+	fi
+
          
 clean_frozen_py:
 	rm -rf ports/esp32/build-ESP32_GENERIC_S3-DEVKITW2/frozen_mpy

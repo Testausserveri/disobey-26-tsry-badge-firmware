@@ -36,11 +36,30 @@ A global `Config` instance that provides access to badge configuration and setti
 
 A development utility function for loading and testing applications/games.
 
-**Example:**
+**REPL Example:**
 
 ```python
->>> load_app("badge.options", "OptionScreen", with_espnow=True, with_sta=True)
+>>> load_app("bdg.games.flashy", "Flashy")
 ```
+
+**Quick Execute (Without REPL):**
+
+You can also use the `make dev_exec` target to execute `load_app()` commands without entering the REPL:
+
+```bash
+# Execute load_app directly
+make dev_exec CMD='load_app("bdg.games.flashy", "Flashy")'
+
+# With explicit port (macOS)
+make PORT=/dev/tty.usbserial-XXX dev_exec CMD='load_app("bdg.games.flashy", "Flashy")'
+
+# With explicit port (Linux)
+make PORT=/dev/ttyUSB0 dev_exec CMD='load_app("bdg.games.flashy", "Flashy")'
+```
+
+This is useful for quick testing, automation, and integration with development workflows.
+
+**Note:** `flashy` is a good reference implementation that demonstrates button handling, LED control, config usage, and async tasks. See [frozen_firmware/modules/bdg/games/flashy.py](../frozen_firmware/modules/bdg/games/flashy.py) for the complete source.
 
 ### `badge_help()`
 

@@ -153,8 +153,33 @@ Access badge configuration (already initialized):
 Load specific applications or games for testing:
 
 ```python
->>> load_app("badge.options", "OptionScreen", with_espnow=True, with_sta=True)
+>>> load_app("bdg.games.flashy", "Flashy")
 ```
+
+#### Quick Execute with `make dev_exec`
+
+For quick testing without entering the REPL, use the `dev_exec` make target to execute commands directly:
+
+```bash
+# Execute a command with firmware directory mounted
+make dev_exec CMD='load_app("bdg.games.flashy", "Flashy")'
+
+# With explicit port specification (macOS)
+make PORT=/dev/tty.usbserial-XXX dev_exec CMD='load_app("bdg.games.flashy", "Flashy")'
+
+# With explicit port specification (Linux)
+make PORT=/dev/ttyUSB0 dev_exec CMD='load_app("bdg.games.flashy", "Flashy")'
+
+# Other examples
+make dev_exec CMD='import badge.main'
+make dev_exec CMD='config.set_nick("TestBadge")'
+```
+
+This is particularly useful for:
+- Quick testing without staying in the REPL
+- Automating test sequences
+- Running one-off commands
+- Integration with scripts and CI/CD
 
 ### Multiple Devices Connected
 
