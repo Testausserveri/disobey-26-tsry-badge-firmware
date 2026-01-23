@@ -84,8 +84,9 @@ class BadgeScreen(Screen):
 class ScannerScreen(Screen):
     """Simple scanner draft that start EspNowScanner and display results in a listbox"""
 
-    def __init__(self):
+    def __init__(self, espnow=None, sta=None):
         super().__init__()
+        self.espnow = espnow
         self.update_task = None
         self.sort = "last_seen"
         self.wri = wri = CWriter(ssd, font10, GREEN, BLACK, verbose=False)
@@ -203,15 +204,15 @@ class ScannerScreen(Screen):
     async def update_resuls_task(self):
         try:
             print("update_resuls_task: start")
-            NowListener.start(None)  # ensure scanner is running
+            NowListener.start(self.espnow)  # ensure scanner is running
             Beacon.suspend(False)  # ensure that we have beacon on
 
             # initial update
             self.append_list(NowListener.last_seen.values())
 
             # wait for changes
-            async for latest_key in NowListener.updates():
-                self.append_list(NowListener.last_seen[latest_key])
+            async for latest_badge in NowListener.updates():
+                self.append_list(latest_badge)
                 await asyncio.sleep(0)
             print("update_resuls_task: no more updates")
         except Exception as e:

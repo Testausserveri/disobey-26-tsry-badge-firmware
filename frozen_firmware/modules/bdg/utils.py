@@ -293,7 +293,6 @@ async def global_buttons(espnow=None, sta=None):
     from bdg.asyncbutton import ButtonEvents, ButAct
     from bdg.badge_game import GameLobbyScr
     from bdg.screens.option_screen import OptionScreen
-    from bdg.screens.scan_screen import ScannerScreen
 
     ev_subset = ButtonEvents.get_event_subset(
         [
