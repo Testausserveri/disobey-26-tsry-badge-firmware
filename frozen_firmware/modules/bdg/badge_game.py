@@ -9,12 +9,13 @@ from bdg.utils import singleton, Timer
 from bdg.config import Config
 from bdg.widgets.hidden_active_widget import HiddenActiveWidget
 from bdg.screens.scan_screen import ScannerScreen
-from gui.core.colors import GREEN, BLACK, D_PINK, WHITE, D_GREEN, D_RED
+from bdg.game_registry import get_registry
+from gui.core.colors import GREEN, BLACK, D_PINK, WHITE, D_GREEN, D_RED, FOCUS, color_map
 from gui.core.ugui import Screen, ssd
 from gui.core.writer import CWriter
 from gui.fonts import arial35, freesans20, font10 as font10
 from gui.primitives import launch
-from gui.widgets.buttons import Button
+from gui.widgets.buttons import Button, RECTANGLE
 from gui.widgets.label import Label
 
 
@@ -75,6 +76,7 @@ class GameLobbyScr(Screen):
 
     def __init__(self):
         super().__init__()
+        color_map[FOCUS] = WHITE  # Set focus color to white
         self.game = BadgeGame()
         # verbose default indicates if fast rendering is enabled
         wri = CWriter(ssd, font10, WHITE, BLACK, verbose=False)
@@ -89,7 +91,49 @@ class GameLobbyScr(Screen):
         self.lbl_i.value("Badge is")
         self.lbl_s.value("ACTIVE")
 
-        fwdbutton(wri, 170 - 30, 135, ScannerScreen, text="Challenge friend")
+        # Check if there are multiplayer games available
+        registry = get_registry()
+        multiplayer_games = [g for g in registry.get_all_games() if g.get("multiplayer", False)]
+        has_multiplayer = len(multiplayer_games) > 0
+
+        # Multi button (left side) - opens ScannerScreen for multiplayer
+        def multi_cb(button):
+            Screen.change(ScannerScreen)
+
+        self.multi_btn = Button(
+            wri,
+            170 - 30,
+            50,
+            callback=multi_cb,
+            fgcolor=D_PINK,
+            bgcolor=BLACK,
+            text="Multi",
+            shape=RECTANGLE,
+            textcolor=D_PINK,
+            width=110,
+        )
+        
+        # Disable Multi button if no multiplayer games available
+        if not has_multiplayer:
+            self.multi_btn.greyed_out(True)
+
+        # Solo button (right side) - will open SoloGamesScreen
+        def solo_cb(button):
+            # TODO: Change to SoloGamesScreen once implemented
+            print("Solo button pressed - SoloGamesScreen not yet implemented")
+
+        self.solo_btn = Button(
+            wri,
+            170 - 30,
+            170,
+            callback=solo_cb,
+            fgcolor=D_PINK,
+            bgcolor=BLACK,
+            text="Solo",
+            shape=RECTANGLE,
+            textcolor=D_PINK,
+            width=110,
+        )
 
     def after_open(self):
         self.update_nickname()
