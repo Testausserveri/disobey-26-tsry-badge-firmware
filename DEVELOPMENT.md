@@ -334,6 +334,35 @@ print(f"Memory used: {start_memory - end_memory} bytes")
 
 ### Development Workflow
 
+#### Two-Phase Development Approach
+
+For optimal development speed and safety, follow this workflow:
+
+**Phase 1: Development in `/firmware` (Fast Iteration)**
+1. Create or copy your module to `/firmware` directory
+2. Use `make dev_exec` to test immediately without firmware rebuild:
+   ```bash
+   make dev_exec CMD='load_app("badge.screens.scan_screen", "ScannerScreen", with_espnow=True, with_sta=True)'
+   ```
+3. Changes are instantly available - just re-run the command
+4. Iterate rapidly until working perfectly
+5. Benefits: 
+   - No 5-10 minute firmware rebuild
+   - Quick feedback loop
+   - Easy rollback (just undo file changes)
+   - Safe - won't brick badge with bad frozen code
+
+**Phase 2: Production Deployment in `/frozen_firmware`**
+1. **ONLY after firmware copy is tested and working**
+2. Copy tested code to `/frozen_firmware`
+3. Build firmware: `make build_firmware`
+4. Deploy: `make PORT=/dev/tty.usbserial-XXX deploy`
+5. Final verification on actual hardware
+6. Benefits:
+   - Faster import times
+   - Lower memory usage
+   - Code is built into firmware
+
 #### Runtime Modules (`/firmware`) - Development Only
 
 - **Use for**: Active development, debugging, testing new features
