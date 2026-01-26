@@ -14,7 +14,7 @@ from gui.widgets.label import Label
 from gui.widgets.listbox import Listbox, dolittle
 
 
-class BadgeScreen(Screen):
+class MultiplayerGameSelectionScreen(Screen):
     def __init__(
         self,
         badge_addr: BadgeAdr = null_badge_adr,
@@ -22,16 +22,28 @@ class BadgeScreen(Screen):
         self.baddr = badge_addr
 
         super().__init__()
-        self.wri = CWriter(ssd, font10, GREEN, BLACK, verbose=False)
+        
+        # Title writer with freesans20 font
+        wri = CWriter(ssd, freesans20, GREEN, BLACK, verbose=False)
+        # Listbox writer with font10 and D_PINK
+        wri_pink = CWriter(ssd, font10, D_PINK, BLACK, verbose=False)
+        # Status label writer
+        wri_status = CWriter(ssd, font10, GREEN, BLACK, verbose=False)
 
-        self.b_lbl = Label(self.wri, 5, 5, f"{badge_addr}")
-
-        self.b_lbl = Label(
-            self.wri, 20, 5, f"Badge is ACTIVE", bdcolor=RED, fgcolor=GREEN, bgcolor=RED
+        # Title label centered at top
+        self.lbl_title = Label(
+            wri,
+            10,
+            2,
+            316,
+            bdcolor=False,
+            justify=Label.CENTRE,
         )
+        self.lbl_title.value(f"Challenge: {badge_addr.nick}")
 
+        # Status label for connection feedback
         self.s_lbl = Label(
-            self.wri, 35, 160, 100, bdcolor=RED, fgcolor=GREEN, bgcolor=RED
+            wri_status, 35, 2, 316, bdcolor=False, justify=Label.CENTRE
         )
 
         # Load games dynamically from registry
@@ -42,17 +54,22 @@ class BadgeScreen(Screen):
         self.els = [
             game["title"] for game in self.games if game.get("multiplayer", False)
         ]
+        
+        # Ensure we have at least one element for the listbox
+        if not self.els:
+            self.els = ["No multiplayer games available"]
 
         self.lb = Listbox(
-            self.wri,
+            wri_pink,
             50,
-            50,
+            2,
             elements=self.els,
-            dlines=3,
-            bdcolor=RED,
+            dlines=6,
+            bdcolor=D_PINK,
             value=1,
             callback=self.lbcb,
             also=Listbox.NOCB,
+            width=316,
         )
 
     async def launch_app(self, app_id):
@@ -122,8 +139,8 @@ class ScannerScreen(Screen):
         HiddenActiveWidget(wri_pink)  # Quit the application
 
     def cb(self, *args):
-        # print(f"callback: {args}")
-        Screen.change(BadgeScreen, args=(args[1],))
+
+        Screen.change(MultiplayerGameSelectionScreen, args=(args[1],))
 
     def on_open(self):
         # TODO: README This is the only way to add workers to task!!

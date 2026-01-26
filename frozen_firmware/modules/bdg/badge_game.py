@@ -89,9 +89,7 @@ class GameLobbyScr(Screen):
         self.lbl_i.value("Badge is")
         self.lbl_s.value("ACTIVE")
 
-        # TODO: show list of badges instead of ActiveGameScr, after selecting opponent, show game selections and after that ActiveGameScr
-        # fwdbutton(wri, 170 - 30, 135, ActiveGameScr, text="Play")
-        fwdbutton(wri, 170 - 30, 135, ScannerScreen, text="Play")
+        fwdbutton(wri, 170 - 30, 135, ScannerScreen, text="Challenge friend")
 
     def after_open(self):
         self.update_nickname()
