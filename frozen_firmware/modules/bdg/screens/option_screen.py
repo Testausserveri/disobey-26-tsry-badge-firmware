@@ -1,6 +1,7 @@
 import asyncio
 
 from bdg.game_registry import init_game_registry, get_registry
+from bdg.screens.solo_games_screen import SoloGamesScreen
 from gui.fonts import freesans20, font10
 from gui.core.colors import *
 from gui.core.ugui import Screen, ssd, quiet
@@ -25,17 +26,13 @@ class OptionScreen(Screen):
         self.els = [
             "Home",
             "Firmware update",
-            "---",
+            "Solo games & apps",
         ]
 
         self.espnow = espnow
         self.sta = sta
 
-        # Add solo games from registry
-        registry = get_registry()
-        solo_games = registry.get_solo_games()
-        for game in solo_games:
-            self.els.append(game.get("title", "Unknown Game"))
+        # No longer add individual solo games
 
                 
         self.lbl_w = Label(
@@ -111,19 +108,3 @@ class OptionScreen(Screen):
                     "ota_config": Config.config["ota"],
                 },
             )
-        elif selected == "---":
-            # Separator, do nothing
-            pass
-        else:
-            # Check if it's a solo game
-            registry = get_registry()
-            for game in registry.get_solo_games():
-                if game.get("title") == selected:
-                    # Launch the solo game with no connection
-                    screen_class = game.get("screen_class")
-                    screen_args = game.get("screen_args", ())
-                    # Solo games get None as connection
-                    Screen.change(
-                        screen_class, args=(None,) + screen_args, mode=Screen.STACK
-                    )
-                    break

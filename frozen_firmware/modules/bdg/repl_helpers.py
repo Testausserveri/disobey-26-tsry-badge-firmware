@@ -13,6 +13,7 @@ def _initialize_badge():
     global _espnow, _sta, _initialized
 
     if _initialized:
+        print("Badge already initialized, skipping...")
         return _espnow, _sta
 
     import aioespnow
@@ -20,12 +21,25 @@ def _initialize_badge():
     from bdg.config import Config
     from hardware_setup import BtnConfig
     from bdg.asyncbutton import ButtonEvents
+    from bdg.game_registry import init_game_registry, get_registry
     from gui.core.ugui import quiet
 
     print("Initializing badge for REPL...")
 
     # Init button event machine
     ButtonEvents.init(BtnConfig)
+    print("  ✓ Button events initialized")
+
+    # Initialize game registry
+    print("  Initializing game registry...")
+    init_game_registry()
+    
+    # Debug: Check what games were loaded
+    registry = get_registry()
+    all_games = registry.get_all_games()
+    print(f"  ✓ Game registry initialized: {len(all_games)} total games")
+    for game in all_games:
+        print(f"    - {game['title']} (con_id={game['con_id']}, multiplayer={game.get('multiplayer', False)})")
 
     Config.load()
     channel = int(Config.config["espnow"]["ch"])

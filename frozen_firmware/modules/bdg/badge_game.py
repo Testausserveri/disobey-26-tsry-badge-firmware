@@ -9,6 +9,7 @@ from bdg.utils import singleton, Timer
 from bdg.config import Config
 from bdg.widgets.hidden_active_widget import HiddenActiveWidget
 from bdg.screens.scan_screen import ScannerScreen
+from bdg.screens.solo_games_screen import SoloGamesScreen
 from bdg.game_registry import get_registry
 from gui.core.colors import GREEN, BLACK, D_PINK, WHITE, D_GREEN, D_RED, FOCUS, color_map
 from gui.core.ugui import Screen, ssd
@@ -119,8 +120,7 @@ class GameLobbyScr(Screen):
 
         # Solo button (right side) - will open SoloGamesScreen
         def solo_cb(button):
-            # TODO: Change to SoloGamesScreen once implemented
-            print("Solo button pressed - SoloGamesScreen not yet implemented")
+            Screen.change(SoloGamesScreen)
 
         self.solo_btn = Button(
             wri,
