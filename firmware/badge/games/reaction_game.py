@@ -180,12 +180,10 @@ class ReactionGameScr(Screen):
             Screen.back()
 
     def after_open(self):
-        if self.casual:
-            seed = random.randint(10_000, 100_000)
-        else:
-            # TODO: Exchange seed with other badge#
-            # self.seed = random.randint(10_000, 100_000) + other_badge_seed
-            seed = 1
+
+        # TODO: Exchange seed with other badge#
+        # self.seed = random.randint(10_000, 100_000) + other_badge_seed
+        seed = 1
 
         if not self.game:
             self.game = RGame(seed)
