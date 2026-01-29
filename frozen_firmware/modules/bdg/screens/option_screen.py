@@ -1,4 +1,5 @@
 from bdg.screens.solo_games_screen import SoloGamesScreen
+from bdg.screens.info_screen import InfoScreen
 from gui.fonts import freesans20, font10
 from gui.core.colors import *
 from gui.core.ugui import Screen, ssd
@@ -21,6 +22,7 @@ class OptionScreen(Screen):
         wri_pink = CWriter(ssd, font10, D_PINK, BLACK, verbose=False)
         self.els = [
             "Home",
+            "Info",
             "Firmware update",
             "Solo games & apps",
         ]
@@ -59,6 +61,8 @@ class OptionScreen(Screen):
 
         if selected == "Home":
             Screen.change(GameLobbyScr)
+        elif selected == "Info":
+            Screen.change(InfoScreen, mode=Screen.STACK)
         elif selected == "Firmware update":
             Screen.change(
                 OTAScreen,
