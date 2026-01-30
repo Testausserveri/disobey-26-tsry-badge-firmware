@@ -70,6 +70,11 @@ I'm working on the **Disobey Badge 2025** project, which is a MicroPython-based 
 ### Common Tasks:
 
 - **Live Testing**: Modify files in `/firmware`, they're immediately available on badge
+- **Quick Screen Testing (PREFERRED)**: Use `make dev_exec` to load and test screens without REPL
+  ```bash
+  make dev_exec CMD='load_app("badge.hw_test", "HwTestScr", kwargs={"force_run": True})'
+  make dev_exec CMD='load_app("bdg.screens.option_screen", "OptionScreen", with_espnow=True, with_sta=True)'
+  ```
 - **REPL Access**: Run `make repl_with_firmware_dir` (auto-detects device) or use mpremote directly
 - **Firmware Building**: Run `make build_firmware` (builds normal firmware) or `FW_TYPE=minimal make build_firmware`
 - **Moving to Production**: Move stable code from `/firmware` to `/frozen_firmware`
@@ -222,9 +227,37 @@ The project supports two firmware variants:
 
 ## Testing Guidelines
 
-### Before Making Changes
+### Recommended Testing Approach (PREFERRED)
 
-Always test import success:
+**Use `make dev_exec` for rapid screen/game testing:**
+
+This approach is faster and cleaner than entering REPL manually:
+
+```bash
+# Test a screen with debug output
+make dev_exec CMD='load_app("badge.hw_test", "HwTestScr", kwargs={"force_run": True})'
+
+# Test with espnow and sta
+make dev_exec CMD='load_app("bdg.screens.option_screen", "OptionScreen", with_espnow=True, with_sta=True)'
+
+# Test a game
+make dev_exec CMD='load_app("badge.games.reaction_game", "ReactionGameScr", args=(None, True))'
+
+# Specify PORT if device not auto-detected
+make PORT=/dev/tty.usbserial-210 dev_exec CMD='load_app("badge.hw_test", "HwTestScr")'
+```
+
+**Workflow for debugging:**
+1. Copy problematic file from `/frozen_firmware` to `/firmware` for live development
+2. Add debug print statements
+3. Test with `make dev_exec CMD='load_app(...)'`
+4. Watch console output for debug messages
+5. Make changes, test again immediately (no rebuild needed)
+6. Once fixed, copy back to `/frozen_firmware`
+
+### Alternative: Manual REPL Testing
+
+Before Making Changes, test import success:
 
 ```bash
 python ./micropython/tools/mpremote/mpremote.py baud 460800 u0 mount -l ./firmware exec "import badge.main"
@@ -236,6 +269,8 @@ Or use the Makefile target for REPL:
 make repl_with_firmware_dir
 # Then in REPL:
 import badge.main
+# Or use load_app:
+load_app("badge.hw_test", "HwTestScr", kwargs={"force_run": True})
 ```
 
 ### Expected Success Output
@@ -276,19 +311,29 @@ BootScr: nick=...
 
 - Ask for specific error messages and full tracebacks
 - Request project state (git status, recent changes)
-- Suggest incremental testing steps
+- Suggest incremental testing steps with `make dev_exec`
 - Recommend git bisect for regressions
 
 ---
 
-**Current REPL Connection** (inside Dev Container):
+## Quick Reference Commands
+
+**Testing and Debugging (PREFERRED):**
+```bash
+# Load and test a screen/game
+make dev_exec CMD='load_app("badge.hw_test", "HwTestScr", kwargs={"force_run": True})'
+
+# With specific port
+make PORT=/dev/tty.usbserial-210 dev_exec CMD='load_app("module.path", "ClassName")'
+```
+
+**REPL Access:**
+```bash
+make repl_with_firmware_dir
+```
+
+Or using mpremote directly (inside Dev Container):
 
 ```bash
 python ./micropython/tools/mpremote/mpremote.py baud 460800 u0 mount -l ./firmware
-```
-
-Or preferably use the Makefile target:
-
-```bash
-make repl_with_firmware_dir
 ```
