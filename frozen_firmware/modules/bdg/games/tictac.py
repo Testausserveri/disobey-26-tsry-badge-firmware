@@ -124,6 +124,9 @@ class TicTacToe(Screen):
         self.round = 0
         self.max_round = 5
         self.wins = 0
+        self.opponent_wins = 0
+        # Number of wins required to win the match (best of N)
+        self.needed_wins = (self.max_round // 2) + 1
 
         self._init = 0
         self.ui_state = GAME_OVER
@@ -300,7 +303,9 @@ class TicTacToe(Screen):
                 # modify game state, opponent did not claim win
                 self.g_state.add_move(msg.move // 3, msg.move % 3)
                 self.update_board(self.g_state.to_dict(), upd_btn=True)
+                # Update opponent wins counter if they claimed a valid win
                 if msg.iam_winner and self.g_state.is_winner(self.g_state.other_p()):
+                    self.opponent_wins += 1
                     # opponent claimed victory and our game state said the same
                     self.set_info_label(
                         f"Game lost to {self.g_state.other_p().upper()}", err=True
@@ -312,6 +317,14 @@ class TicTacToe(Screen):
 
                 else:
                     self.set_info_label(f"{self.g_state.other_p()} is a cheater!")
+
+                # If match reached end conditions (best-of or max rounds), decide match winner
+                if (
+                    self.wins >= self.needed_wins
+                    or self.opponent_wins >= self.needed_wins
+                    or self.round >= self.max_round
+                ):
+                    self._check_match_over()
 
             elif msg.msg_type == "Ttt_State":
                 pass
@@ -337,9 +350,22 @@ class TicTacToe(Screen):
 
         if ended:
             winner = self.g_state.champ == self.g_state.cp  # if false, its a draw
-            self.conn.send_app_msg(TttEnd(winner, move), sync=False)
+            # Update local wins counter
+            if winner:
+                self.wins += 1
+
+            # Notify opponent about round end
+            try:
+                self.conn.send_app_msg(TttEnd(winner, move), sync=False)
+            except Exception as e:
+                print(f"Failed to send TttEnd: {e}")
+
             self.set_info_label("You Won!!" if winner else "It's A DRAW!")
             self.ui_state = GAME_OVER
+
+            # If match reached end conditions (best-of or max rounds), decide match winner
+            if self.wins >= self.needed_wins or self.round >= self.max_round:
+                self._check_match_over()
         else:
             if self._first_move:
                 self._first_move = False
@@ -358,6 +384,15 @@ class TicTacToe(Screen):
 
     def start_cb(self, *args):
         print(f"start_cb: {args}")
+        # Prevent starting new rounds when match is over (best-of) or max rounds reached
+        if self.wins >= self.needed_wins or self.opponent_wins >= self.needed_wins or self.round >= self.max_round:
+            self.set_info_label("Match finished", err=True)
+            try:
+                self.b_start.greyed_out(True)
+            except Exception:
+                pass
+            return
+
         self._first_move = True
         self.round += 1
         self.g_state = TTTGame()
@@ -379,7 +414,9 @@ class TicTacToe(Screen):
             self.set_scoreboard()
             active = self.g_state.is_act()
             self.set_player_label(state["cp"] if active else "??")
-            self.b_start.greyed_out(active)
+            # Disable start if game is active or match is finished (best-of) or max rounds reached
+            match_over = self.wins >= self.needed_wins or self.opponent_wins >= self.needed_wins
+            self.b_start.greyed_out(active or match_over or (self.round >= self.max_round))
             for led in self.leds:
                 led.greyed_out(not active)
 
@@ -453,6 +490,19 @@ class TicTacToe(Screen):
         print("turn timer cancelled")
         if self.turn_timer and not self.turn_timer.done():
             self.turn_timer.cancel()
+
+    def _check_match_over(self):
+        """Decide and display match result based on accumulated wins."""
+        if self.wins > self.opponent_wins:
+            self.set_info_label("Match Over: You won!", err=False)
+        elif self.wins < self.opponent_wins:
+            self.set_info_label("Match Over: You lost!", err=True)
+        else:
+            self.set_info_label("Match Over: Draw", err=False)
+        try:
+            self.b_start.greyed_out(True)
+        except Exception:
+            pass
 
 
 class TTTGException(Exception):
@@ -559,7 +609,7 @@ def badge_game_config():
     """
     return {
         "con_id": 1,
-        "title": "TicTacToe (Dev)",
+        "title": "TicTacToe",
         "screen_class": TicTacToe,
         "screen_args": (),  # Connection passed separately by framework
         "multiplayer": True,
