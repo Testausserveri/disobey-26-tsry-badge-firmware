@@ -389,7 +389,7 @@ async def new_con_cb(conn, req=False):
                 mode=mode,
                 kwargs={
                     "title": game_config["title"],
-                    "wait": 10,
+                    "wait": 5,
                     "nxt_scr": game_config["screen_class"],
                     "scr_args": screen_args,
                 },
