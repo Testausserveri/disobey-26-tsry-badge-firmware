@@ -596,6 +596,13 @@ This is necessary because:
 - Games in `firmware/badge/games` are only available when the firmware directory is mounted
 - The badge UI initializes the network stack and game registry on both devices
 
+For details on how games are discovered and registered, and the required
+configuration each game must expose, see the Game Registry documentation:
+
+- See: [Game Registry](game_registry.md) — each game module must export a
+    `badge_game_config()` function that returns the game's metadata used by the
+    registry (con_id, title, screen_class, multiplayer flag, etc.).
+
 For production testing with frozen firmware, games are automatically available on boot.
 
 ### Development Testing
