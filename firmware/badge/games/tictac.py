@@ -207,6 +207,11 @@ class TicTacToe(Screen):
         # TODO: how to disallow back when in competitive mode?
         self.cancel_turn_timer()
         if self.conn:
+            try:
+                # Notify opponent that game ended due to leaving
+                self.conn.send_app_msg(TttEnd(False, -1), sync=False)
+            except Exception as e:
+                print(f"Failed to send TttEnd: {e}")
             asyncio.create_task(self.conn.terminate(send_out=True))
 
         Beacon.suspend(False)
