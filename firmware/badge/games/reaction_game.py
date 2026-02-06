@@ -33,7 +33,7 @@ DIS_RED = create_color(13, 210, 0, 0)
 DIS_PINK = create_color(14, 240, 0, 240)
 # c: color, hc: highlight color
 GAME_BTN_COLORS = [
-    {"hc": GREEN, "c": LIGHTGREEN, "btn": "btn"},
+    {"hc": GREEN, "c": LIGHTGREEN, "btn": "btn_start"},
     {"hc": BLUE, "c": DARKBLUE, "btn": "btn_select"},
     {"hc": YELLOW, "c": DARKYELLOW, "btn": "btn_a"},
     {"hc": RED, "c": LIGHTRED, "btn": "btn_b"},
@@ -162,19 +162,24 @@ class ReactionGameMultiplayerEndScr(Screen):
                 
                 print(f"Final result: {result} (Me: {self.my_score}, Opp: {opponent_score})")
                 
-                # Update screen to show results
-                Screen.change(
-                    ReactionGameMultiplayerEndScr,
-                    mode=Screen.REPLACE,
-                    kwargs={
-                        "points": self.my_score,
-                        "conn": self.conn,
-                        "opponent_score": opponent_score,
-                        "result": result,
-                        "waiting": False
-                    }
-                )
+                # Update screen to show results - schedule as separate task to avoid blocking
+                asyncio.create_task(self._show_result(opponent_score, result))
                 break
+    
+    async def _show_result(self, opponent_score: int, result: str):
+        """Helper to show result screen without blocking message loop"""
+        await asyncio.sleep_ms(10)  # Brief delay to ensure message processing completes
+        Screen.change(
+            ReactionGameMultiplayerEndScr,
+            mode=Screen.REPLACE,
+            kwargs={
+                "points": self.my_score,
+                "conn": self.conn,
+                "opponent_score": opponent_score,
+                "result": result,
+                "waiting": False
+            }
+        )
 
     def on_hide(self):
         # Resume beacon and cleanup
