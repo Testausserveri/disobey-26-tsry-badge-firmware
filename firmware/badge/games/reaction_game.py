@@ -7,8 +7,26 @@ import asyncio
 from gui.core.colors import *
 from bdg.widgets.hidden_active_widget import HiddenActiveWidget
 import random
-from bdg.msg.connection import Connection
+from bdg.msg.connection import Connection, Beacon
 from bdg.asyncbutton import ButtonEvents, ButAct
+from bdg.msg import AppMsg, BadgeMsg
+
+
+@AppMsg.register
+class ReactionStart(BadgeMsg):
+    """Exchange random seeds between badges"""
+    def __init__(self, my_seed: int):
+        super().__init__()
+        self.my_seed = my_seed
+
+
+@AppMsg.register
+class ReactionEnd(BadgeMsg):
+    """Send final score when game over"""
+    def __init__(self, final_score: int):
+        super().__init__()
+        self.final_score = final_score
+
 
 DARKYELLOW = create_color(12, 104, 114, 45)
 DIS_RED = create_color(13, 210, 0, 0)
@@ -76,37 +94,93 @@ class GameWin(Exception):
         self.points = points
 
 
-class ReactionGameCasualEndScr(Screen):
+class ReactionGameMultiplayerEndScr(Screen):
+    """End screen for multiplayer reaction game"""
     color_map[FOCUS] = DIS_PINK
 
-    def __init__(self, points: int, conn: Connection):
+    def __init__(self, points: int, conn: Connection, opponent_score: int = None,
+                 result: str = None, waiting: bool = False):
         super().__init__()
+        print(f"EndScr init: {points=}, {opponent_score=}, {result=}, {waiting=}")
+        
         self.conn = conn
+        self.my_score = points
+        self.opponent_score = opponent_score
+        self.result = result
+        self.waiting = waiting
 
-        wri_points = CWriter(ssd, arial35, WHITE, BLACK, verbose=False)
-        lbl_points = Label(wri_points, 20, 0, 320, justify=Label.CENTRE)
-        lbl_points.value(text=f"{points}")
+        wri_title = CWriter(ssd, arial35, WHITE, BLACK, verbose=False)
+        self.title_label = Label(wri_title, 20, 0, 320, justify=Label.CENTRE)
+        
+        wri_score = CWriter(ssd, font10, GREEN, BLACK, verbose=False)
+        self.score_label = Label(wri_score, 70, 0, 320, justify=Label.CENTRE)
+        
+        if waiting:
+            print("Setting waiting text")
+            self.title_label.value(text="Waiting...")
+            self.score_label.value(text=f"Your score: {points}")
+        else:
+            # Show result
+            print(f"Setting result text: {result}")
+            if result == "won":
+                self.title_label.value(text="You Won!")
+            elif result == "lost":
+                self.title_label.value(text="You Lost!")
+            else:
+                self.title_label.value(text="Draw!")
+            
+            self.score_label.value(text=f"You: {points} | Opp: {opponent_score}")
+        
+        print("EndScr init complete")
+    
+    def after_open(self):
+        # If waiting for opponent, keep reading messages
+        if self.waiting:
+            print("Registering message reader for waiting screen")
+            self.reg_task(self.wait_for_opponent(), True)
+    
+    async def wait_for_opponent(self):
+        """Continue reading messages while waiting for opponent to finish"""
+        if not self.conn or not self.conn.active:
+            print("wait_for_opponent: conn not active")
+            return
+        
+        async for msg in self.conn.get_msg_aiter():
+            print(f"EndScr received message: {msg.msg_type}")
+            
+            if msg.msg_type == "ReactionEnd":
+                opponent_score = msg.final_score
+                print(f"Opponent finished with score: {opponent_score}")
+                
+                # Determine result
+                if self.my_score > opponent_score:
+                    result = "won"
+                elif self.my_score < opponent_score:
+                    result = "lost"
+                else:
+                    result = "draw"
+                
+                print(f"Final result: {result} (Me: {self.my_score}, Opp: {opponent_score})")
+                
+                # Update screen to show results
+                Screen.change(
+                    ReactionGameMultiplayerEndScr,
+                    mode=Screen.REPLACE,
+                    kwargs={
+                        "points": self.my_score,
+                        "conn": self.conn,
+                        "opponent_score": opponent_score,
+                        "result": result,
+                        "waiting": False
+                    }
+                )
+                break
 
-        wri_points = CWriter(ssd, arial35, DIS_RED, BLACK, verbose=False)
-        lbl_points = Label(wri_points, 70, 0, 320, justify=Label.CENTRE)
-        lbl_points.value(text=f"Game Over!")
-
-        wri = CWriter(ssd, font10, DIS_PINK, BLACK, verbose=False)
-
-        Button(wri, 120, 40, width=100, height=24, text="Menu", callback=self.go_back)
-        Button(
-            wri, 120, 180, width=100, height=24, text="Restart", callback=self.restart
-        )
-
-    def go_back(self, *args):
-        Screen.back()
-
-    def restart(self, *args):
-        Screen.change(
-            ReactionGameScr,
-            mode=Screen.REPLACE,
-            kwargs={"conn": self.conn, "casual": True},
-        )
+    def on_hide(self):
+        # Resume beacon and cleanup
+        Beacon.suspend(False)
+        if self.conn:
+            asyncio.create_task(self.conn.terminate(send_out=True))
 
 
 class ReactionGameScr(Screen):
@@ -124,9 +198,18 @@ class ReactionGameScr(Screen):
     # Game UI state
     gs = STATE_GAME_PAUSED
 
-    def __init__(self, conn: Connection, casual: bool = False):
+    def __init__(self, conn: Connection):
+        # Multiplayer only - connection required
         self.conn: Connection = conn
-        self.casual = casual
+        
+        # Multiplayer state
+        self.my_seed = None
+        self.opponent_seed = None
+        self.opponent_finished = False
+        self.opponent_score = None
+        self.my_final_score = None
+        self.waiting_for_opponent = False
+        
         super().__init__()
         self.wri = CWriter(ssd, font10, GREEN, BLACK, verbose=False)
 
@@ -169,7 +252,7 @@ class ReactionGameScr(Screen):
                 self.go_back()
             elif self.gs == self.STATE_GAME_ONGOING:
                 print(f"btn: {btn}, ev: {ev}")
-                if ev == ButAct.ACT_PRESS:
+                if ev == ButAct.ACT_PRESS and btn in self.btn_idx:
                     await self.btn_cb(self.btn_idx[btn])
 
     def go_back(self):
@@ -180,23 +263,27 @@ class ReactionGameScr(Screen):
             Screen.back()
 
     def after_open(self):
-
-        # TODO: Exchange seed with other badge#
-        # self.seed = random.randint(10_000, 100_000) + other_badge_seed
-        seed = 1
-
-        if not self.game:
-            self.game = RGame(seed)
-
-        if not self.gt or self.gt.done():
-            self.gt = self.reg_task(self.cont_sqnc(), True)
-
+        # Always register button handler first
         if not self.bt or self.bt.done():
             self.bt = self.reg_task(self.btn_handler(), True)
+        
+        # Suspend beacon during multiplayer game
+        Beacon.suspend(True)
+        
+        # Register message reading task
+        self.reg_task(self.read_messages(), True)
+        
+        # Generate and send our seed immediately
+        my_seed = random.randint(10_000, 100_000)
+        self.my_seed = my_seed
+        print(f"Connection active: {self.conn.active}")
+        print(f"Sending my seed: {my_seed}")
+        self.conn.send_app_msg(ReactionStart(my_seed), sync=False)
 
     def on_hide(self):
         self.gs = self.STATE_GAME_PAUSED
         print("screen hidden")
+        # Don't cleanup here - let the end screen handle it
 
     async def cont_sqnc(self):
         await asyncio.sleep(1.5)
@@ -213,9 +300,10 @@ class ReactionGameScr(Screen):
                 print(f"Button index: {btn_idx}")
                 await self.hl_button(btn_idx, self.game.cur_idx)
         except GameOver as go:
-            print("game over")
+            print(f"GameOver exception caught: {go.points}")
             self.gs = self.STATE_GAME_OVER
-            # self.lbl_result.value(text=f"{go.reason} p:{go.points}")
+            # Schedule stop_game as separate task to avoid blocking
+            asyncio.create_task(self.stop_game())
         
 
     async def btn_cb(self, btn_idx):
@@ -226,12 +314,11 @@ class ReactionGameScr(Screen):
                 self.game.btn_press(btn_idx)
                 self.lbl_points.value(text=str(self.game.points()))
             except GameOver as go:
-                # self.lbl_result.value(text=f"Wrong! Your points: {go.points}")
-                await self.stop_game()
+                # Schedule stop_game as separate task to avoid "can't cancel self"
+                asyncio.create_task(self.stop_game())
             except GameWin as go:
-                # self.lbl_result.value(
-                #    text=f"You won! Your points: {go.points}")
-                await self.stop_game()
+                # Schedule stop_game as separate task to avoid "can't cancel self"
+                asyncio.create_task(self.stop_game())
 
     async def _highlight_off(self, btn_idx):
         await asyncio.sleep(0.5)
@@ -258,16 +345,108 @@ class ReactionGameScr(Screen):
         print(f"sleep_time {sleep_time}")
         await asyncio.sleep(sleep_time)
 
+    async def read_messages(self):
+        """Read incoming messages from opponent"""
+        # Check if connection is active (like tictac does)
+        if not self.conn or not self.conn.active:
+            print("read_messages() stopped, conn not active")
+            return
+        
+        print("Starting message reading loop")
+        async for msg in self.conn.get_msg_aiter():
+            print(f"Received message: {msg.msg_type}")
+            
+            if msg.msg_type == "ReactionStart":
+                # Received opponent's seed
+                self.opponent_seed = msg.my_seed
+                combined_seed = self.my_seed + self.opponent_seed
+                print(f"Seeds combined: {self.my_seed} + {self.opponent_seed} = {combined_seed}")
+                
+                # Start the game with synchronized seed
+                if not self.game:
+                    self.game = RGame(combined_seed)
+                
+                if not self.gt or self.gt.done():
+                    self.gt = self.reg_task(self.cont_sqnc(), True)
+            
+            elif msg.msg_type == "ReactionEnd":
+                # Opponent finished their game
+                self.opponent_finished = True
+                self.opponent_score = msg.final_score
+                print(f"Opponent finished with score: {msg.final_score}, my waiting: {self.waiting_for_opponent}")
+                
+                # If we already finished, compare scores and show result
+                if self.waiting_for_opponent:
+                    print("Both finished, showing result now")
+                    # Schedule as separate task to avoid blocking message loop
+                    asyncio.create_task(self.show_multiplayer_result())
+                else:
+                    print("Opponent finished first, we're still playing")
+                # Otherwise, just save the score and continue playing silently
+
+    async def show_multiplayer_result(self):
+        """Compare scores and show result screen"""
+        my_score = self.my_final_score
+        opp_score = self.opponent_score
+        
+        if my_score > opp_score:
+            result = "won"
+        elif my_score < opp_score:
+            result = "lost"
+        else:
+            result = "draw"
+        
+        print(f"Game result: {result} (Me: {my_score}, Opponent: {opp_score})")
+        Screen.change(
+            ReactionGameMultiplayerEndScr,
+            mode=Screen.REPLACE,
+            kwargs={
+                "points": my_score,
+                "conn": self.conn,
+                "opponent_score": opp_score,
+                "result": result,
+                "waiting": False
+            }
+        )
+
     async def stop_game(self):
         self.gs = self.STATE_GAME_OVER
-
-        if self.casual:
-            # Littel wait so that btn_b doesn't trigger anything on next screen
-            await asyncio.sleep_ms(200)
+        points = self.game.points()
+        print(f"Game Over. {points=}")
+        
+        self.my_final_score = points
+        
+        # Send our score to opponent
+        try:
+            print(f"Sending ReactionEnd with points={points}")
+            self.conn.send_app_msg(ReactionEnd(points), sync=False)
+        except Exception as e:
+            print(f"Failed to send ReactionEnd: {e}")
+        
+        # Small delay to ensure message is sent before screen change
+        await asyncio.sleep_ms(100)
+        
+        # Check if opponent already finished
+        if self.opponent_finished:
+            # Both finished, show result immediately
+            print("Opponent already finished, showing results")
+            # Schedule as separate task
+            asyncio.create_task(self.show_multiplayer_result())
+        else:
+            # Wait for opponent to finish
+            print("Waiting for opponent to finish")
+            self.waiting_for_opponent = True
+            await asyncio.sleep_ms(100)
             Screen.change(
-                ReactionGameCasualEndScr,
+                ReactionGameMultiplayerEndScr,
                 mode=Screen.REPLACE,
-                kwargs={"points": self.game.points(), "conn": self.conn},
+                kwargs={
+                    "points": points,
+                    "conn": self.conn,
+                    "opponent_score": None,
+                    "result": None,
+                    "waiting": True
+                }
             )
 
 
