@@ -323,15 +323,15 @@ async def new_con_cb(conn, req=False):
 
     Handles self initiated connection if req=True
     """
-    from bdg.msg.connection import Connection
+    from bdg.msg.connection import Connection, NowListener
     from bdg.screens.loading_screen import LoadingScreen
     from bdg.screens.option_screen import OptionScreen
     from bdg.game_registry import get_registry
     from gui.core.writer import CWriter
-    from gui.widgets.dialog import DialogBox
-    import gui.fonts.freesans20 as font
-    from gui.core.colors import GREEN, BLACK, RED
     from gui.core.ugui import ssd
+    from bdg.widgets.custom_dialog import CustomDialogBox
+    from gui.fonts import font10
+    from gui.core.colors import GREEN, BLACK, RED
 
     accept = False
     if not req:
@@ -344,26 +344,49 @@ async def new_con_cb(conn, req=False):
             accept = window.value() == "Yes"
             w_reply.set()
 
-        wri = CWriter(ssd, font, GREEN, BLACK, verbose=False)
+        wri = CWriter(ssd, font10, GREEN, BLACK, verbose=False)
+
+        # Build a friendly label using the sender's nickname and the game title
+        try:
+
+            badge = None
+            try:
+                badge = NowListener.last_seen[conn.c_mac]
+            except Exception:
+                badge = None
+
+            nick = None
+            if badge and getattr(badge, "nick", None) is not None:
+                nick = (
+                    badge.nick.decode()
+                    if isinstance(badge.nick, (bytes, bytearray))
+                    else str(badge.nick)
+                )
+
+            registry = get_registry()
+            game_config = registry.get_game(conn.con_id) if registry else None
+            game_title = game_config.get("title") if game_config else f"App {conn.con_id}"
+
+            # Build three-line label: nick / action / game
+            label = f"{nick or 'Someone'}\nchallenges you to play\n{game_title}"
+        except Exception:
+            label = "Incoming connection"
 
         kwargs = {
             "writer": wri,
-            "row": 20,
-            "col": 20,
             "elements": (("Yes", GREEN), ("No", RED)),
-            "label": "Incoming connection",
+            "label": label,
             "callback": resp,
-            "closebutton": False,
         }
 
         # show the dialog box
-        Screen.change(DialogBox, kwargs=kwargs)
+        Screen.change(CustomDialogBox, kwargs=kwargs)
 
         try:
             # this will block until dialog callback resp() is called or timeout
             await asyncio.wait_for(w_reply.wait(), 15)
         except asyncio.TimeoutError:
-            DialogBox.close()  # close dialog
+            CustomDialogBox.close()  # close dialog
 
     if accept or req:
         # TODO: change the app that conn was opened
