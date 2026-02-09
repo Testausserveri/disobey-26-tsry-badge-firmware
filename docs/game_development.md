@@ -2,6 +2,44 @@
 
 This document provides comprehensive guidance for developing games on the Disobey 2025 Badge.
 
+## GUI Framework
+
+The badge uses **[micropython-micro-gui](https://github.com/peterhinch/micropython-micro-gui)** by Peter Hinch, a lightweight MicroPython GUI library designed for embedded displays.
+
+### Framework Features
+
+- **3-Button Navigation**: The badge uses three physical buttons (A, B, C) for all UI interactions
+- **Screen Management**: Navigate between screens with automatic cleanup
+- **Rich Widget Library**: Buttons, labels, sliders, dropdowns, and more
+- **Async/Await Support**: Non-blocking UI operations for responsive games
+- **Hardware Abstraction**: Works with the SSD1306 OLED display driver
+- **Color Management**: Predefined color palette and custom color support
+
+### Core Components
+
+The framework provides these key modules in `/frozen_firmware/modules/gui/`:
+
+- **`gui.core.ugui`**: Core Screen class, display management, and navigation
+- **`gui.widgets`**: Standard widgets (Button, Label, Slider, Checkbox, etc.)
+- **`gui.core.writer`**: Text rendering with font support
+- **`gui.core.colors`**: Color definitions and utilities
+- **`gui.fonts`**: Font files in various sizes (font10, arial35, etc.)
+
+### Hardware Integration
+
+**CRITICAL**: Always import `hardware_setup` first in any module using GUI components to ensure proper initialization order and avoid circular dependency issues.
+
+```python
+import hardware_setup as hardware_setup  # ALWAYS FIRST
+from gui.core.ugui import Screen, ssd
+from gui.widgets import Label, Button
+from gui.core.writer import CWriter
+from gui.fonts import font10, arial35
+from gui.core.colors import *
+```
+
+For complete framework documentation, see the [micropython-micro-gui README](https://github.com/peterhinch/micropython-micro-gui/blob/master/README.md).
+
 ## Architecture Overview
 
 Badge games follow a consistent architecture pattern with clear separation of concerns:
@@ -918,3 +956,17 @@ class SimpleGame(Screen):
 ```
 
 This comprehensive guide should help developers create engaging, well-structured games for the badge!
+
+## Additional Resources
+
+### GUI Framework Documentation
+
+- **[micropython-micro-gui Official Documentation](https://github.com/peterhinch/micropython-micro-gui/blob/master/README.md)** - Complete framework reference
+- **[Widget Reference](https://github.com/peterhinch/micropython-micro-gui/blob/master/README.md#7-widgets)** - Detailed widget API documentation
+- **[Screen Navigation](https://github.com/peterhinch/micropython-micro-gui/blob/master/README.md#311-user-defined-screens)** - Advanced screen management patterns
+
+### Badge-Specific Documentation
+
+- **[Badge API Reference](badge_api.md)** - Badge-specific APIs and utilities
+- **[Custom Modules](custom_modules.md)** - Reusable badge components
+- **[Hardware Documentation](../HARDWARE.md)** - Hardware specifications and schematics

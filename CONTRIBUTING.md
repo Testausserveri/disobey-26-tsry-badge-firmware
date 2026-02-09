@@ -171,5 +171,14 @@ If you need help with development setup or have questions about contributing:
 - **`/set_environment.sh`**: Environment file created when running make, modify to meet your needs
 - **`/firmware`**: Firmware development directory for use with mpremote mount or rsync
 - **`/frozen_firmware`**: Parts of firmware built into MicroPython itself
-- **`/libs/`**: MicroPython related submodules
+- **`/libs/`**: MicroPython related submodules (including micropython-micro-gui)
 - **`/micropython/`**: MicroPython firmware build environment including IDF
+
+## GUI Framework
+
+The badge uses **[micropython-micro-gui](https://github.com/peterhinch/micropython-micro-gui)** by Peter Hinch (MIT License) for the user interface. When contributing UI-related code:
+
+- Import `hardware_setup` first in any module using GUI components
+- Follow the existing patterns for Screen and Widget usage
+- See [docs/game_development.md](docs/game_development.md) for GUI development guidelines
+- Refer to the [official micro-gui documentation](https://github.com/peterhinch/micropython-micro-gui/blob/master/README.md) for framework details

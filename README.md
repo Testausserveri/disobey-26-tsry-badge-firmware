@@ -99,6 +99,59 @@ If you encounter issues, see [TROUBLESHOOTING.md](TROUBLESHOOTING.md) for soluti
 - **`/libs/`** - MicroPython related submodules
 - **`/micropython/`** - MicroPython firmware build environment
 
+## Third-Party Libraries
+
+This project uses the following open source libraries (all under MIT License):
+
+### micropython-micro-gui
+
+**Author**: Peter Hinch  
+**Repository**: [peterhinch/micropython-micro-gui](https://github.com/peterhinch/micropython-micro-gui)  
+**Purpose**: Lightweight, portable MicroPython GUI library for displays with framebuffer drivers
+
+The badge's user interface is built on micropython-micro-gui, which provides:
+- Screen management and navigation
+- Widget library (buttons, labels, sliders, etc.)
+- 3-button input handling
+- Color management
+- Async/await support for non-blocking UI
+
+The framework is located in `/libs/micropython-micro-gui/` and integrated into the frozen firmware at `/frozen_firmware/modules/gui/`.
+
+For game development using the GUI framework, see [docs/game_development.md](docs/game_development.md).
+
+### micropython-async
+
+**Author**: Peter Hinch  
+**Repository**: [peterhinch/micropython-async](https://github.com/peterhinch/micropython-async)  
+**Purpose**: Asynchronous programming primitives and utilities for MicroPython
+
+Provides synchronisation primitives, drivers, and examples for effective use of MicroPython's `asyncio`.
+
+### micropython-msgpack
+
+**Author**: Peter Hinch  
+**Repository**: [peterhinch/micropython-msgpack](https://github.com/peterhinch/micropython-msgpack)  
+**Purpose**: MessagePack serialization for inter-badge communication
+
+Used for efficient binary serialization of messages between badges, achieving substantial data volume reduction compared to JSON.
+
+### micropython-esp32-ota
+
+**Author**: glenn20  
+**Repository**: [glenn20/micropython-esp32-ota](https://github.com/glenn20/micropython-esp32-ota)  
+**Purpose**: Over-The-Air (OTA) firmware updates for ESP32 devices
+
+Enables updating MicroPython firmware on badges without physical connection.
+
+### freezefs
+
+**Author**: bixb922  
+**Repository**: [bixb922/freezefs](https://github.com/bixb922/freezefs)  
+**Purpose**: Self-extracting/self-mounting compressed archives for MicroPython
+
+Used for efficient deployment of file structures into the frozen firmware.
+
 ## Development
 
 For detailed development information, testing procedures, and hardware setup, see [DEVELOPMENT.md](DEVELOPMENT.md).
