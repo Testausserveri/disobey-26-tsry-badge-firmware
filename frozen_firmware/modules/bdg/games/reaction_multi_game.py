@@ -115,6 +115,9 @@ class ReactionGameMultiplayerEndScr(Screen):
         wri_score = CWriter(ssd, font10, GREEN, BLACK, verbose=False)
         self.score_label = Label(wri_score, 70, 0, 320, justify=Label.CENTRE)
         
+        # Add hidden active widget for back button support
+        HiddenActiveWidget(wri_score)
+        
         if waiting:
             print("Setting waiting text")
             self.title_label.value(text="Waiting...")
@@ -162,27 +165,21 @@ class ReactionGameMultiplayerEndScr(Screen):
                 
                 print(f"Final result: {result} (Me: {self.my_score}, Opp: {opponent_score})")
                 
-                # Update screen to show results - schedule as separate task to avoid blocking
-                asyncio.create_task(self._show_result(opponent_score, result))
+                # Update current screen instead of replacing it
+                self.opponent_score = opponent_score
+                self.result = result
+                self.waiting = False
+                
+                # Update labels to show result
+                if result == "won":
+                    self.title_label.value(text="You Won!")
+                elif result == "lost":
+                    self.title_label.value(text="You Lost!")
+                else:
+                    self.title_label.value(text="Draw!")
+                
+                self.score_label.value(text=f"You: {self.my_score} | Opp: {opponent_score}")
                 break
-    
-    async def _show_result(self, opponent_score: int, result: str):
-        """Helper to show result screen without blocking message loop"""
-        await asyncio.sleep_ms(10)  # Brief delay to ensure message processing completes
-        try:
-            Screen.change(
-                ReactionGameMultiplayerEndScr,
-                mode=Screen.REPLACE,
-                kwargs={
-                    "points": self.my_score,
-                    "conn": self.conn,
-                    "opponent_score": opponent_score,
-                    "result": result,
-                    "waiting": False
-                }
-            )
-        except Exception as e:
-            print(f"Error changing screen in _show_result: {e}")
 
     def on_hide(self):
         # Resume beacon and cleanup
@@ -430,39 +427,34 @@ class ReactionGameScr(Screen):
                 # If we already finished, compare scores and show result
                 if self.waiting_for_opponent:
                     print("Both finished, showing result now")
-                    # Schedule as separate task to avoid blocking message loop
-                    asyncio.create_task(self.show_multiplayer_result())
+                    
+                    # Determine result
+                    if self.my_final_score > self.opponent_score:
+                        result = "won"
+                    elif self.my_final_score < self.opponent_score:
+                        result = "lost"
+                    else:
+                        result = "draw"
+                    
+                    print(f"Game result: {result} (Me: {self.my_final_score}, Opponent: {self.opponent_score})")
+                    try:
+                        Screen.change(
+                            ReactionGameMultiplayerEndScr,
+                            mode=Screen.REPLACE,
+                            kwargs={
+                                "points": self.my_final_score,
+                                "conn": self.conn,
+                                "opponent_score": self.opponent_score,
+                                "result": result,
+                                "waiting": False
+                            }
+                        )
+                    except ValueError as e:
+                        print(f"Screen.change failed in read_messages: {e}")
+                    return  # Exit message loop after showing result
                 else:
                     print("Opponent finished first, we're still playing")
                 # Otherwise, just save the score and continue playing silently
-
-    async def show_multiplayer_result(self):
-        """Compare scores and show result screen"""
-        my_score = self.my_final_score
-        opp_score = self.opponent_score
-        
-        if my_score > opp_score:
-            result = "won"
-        elif my_score < opp_score:
-            result = "lost"
-        else:
-            result = "draw"
-        
-        print(f"Game result: {result} (Me: {my_score}, Opponent: {opp_score})")
-        try:
-            Screen.change(
-                ReactionGameMultiplayerEndScr,
-                mode=Screen.REPLACE,
-                kwargs={
-                    "points": my_score,
-                    "conn": self.conn,
-                    "opponent_score": opp_score,
-                    "result": result,
-                    "waiting": False
-                }
-            )
-        except ValueError as e:
-            print(f"Screen.change failed in show_multiplayer_result: {e}")
 
     async def stop_game(self):
         self.gs = self.STATE_GAME_OVER
@@ -485,8 +477,30 @@ class ReactionGameScr(Screen):
         if self.opponent_finished:
             # Both finished, show result immediately
             print("Opponent already finished, showing results")
-            # Schedule as separate task
-            asyncio.create_task(self.show_multiplayer_result())
+            
+            # Determine result
+            if self.my_final_score > self.opponent_score:
+                result = "won"
+            elif self.my_final_score < self.opponent_score:
+                result = "lost"
+            else:
+                result = "draw"
+            
+            print(f"Game result: {result} (Me: {self.my_final_score}, Opponent: {self.opponent_score})")
+            try:
+                Screen.change(
+                    ReactionGameMultiplayerEndScr,
+                    mode=Screen.REPLACE,
+                    kwargs={
+                        "points": self.my_final_score,
+                        "conn": self.conn,
+                        "opponent_score": self.opponent_score,
+                        "result": result,
+                        "waiting": False
+                    }
+                )
+            except ValueError as e:
+                print(f"Screen.change failed in stop_game: {e}")
         else:
             # Wait for opponent to finish
             print("Waiting for opponent to finish")

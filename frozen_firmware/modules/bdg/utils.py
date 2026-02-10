@@ -414,15 +414,11 @@ async def new_con_cb(conn, req=False):
     if accept or req:
         # TODO: change the app that conn was opened
         # Simulate start of App
-        from bdg.badge_game import GameLobbyScr
-
-        if isinstance(Screen.current_screen, GameLobbyScr):
-            # If at home screen add app on top
-            mode = Screen.STACK
-        else:
-            # if we have other app on, replace it
-            print(f"Con: Screen.REPLACE {Screen.current_screen=}")
-            mode = Screen.REPLACE
+        
+        # Always use STACK mode - we're guaranteed to be in allowed navigation screens
+        # because incoming connections auto-decline if not in allowed screens,
+        # and self-initiated connections only come from navigation screens
+        mode = Screen.STACK
 
         # Get game configuration from registry
         registry = get_registry()

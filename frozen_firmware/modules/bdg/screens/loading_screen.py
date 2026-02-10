@@ -62,11 +62,11 @@ class LoadingScreen(Screen):
             self.completed = True
             
             if scr_args is not None:
-                Screen.change(nxt_scr, args=scr_args)
+                Screen.change(nxt_scr, mode=Screen.REPLACE, args=scr_args)
             elif scr_kwargs is not None:
-                Screen.change(nxt_scr, kwargs=scr_kwargs)
+                Screen.change(nxt_scr, mode=Screen.REPLACE, kwargs=scr_kwargs)
             else:
-                Screen.change(nxt_scr)
+                Screen.change(nxt_scr, mode=Screen.REPLACE)
         except asyncio.CancelledError:
             print("LoadingScreen: Wait task cancelled")
 
