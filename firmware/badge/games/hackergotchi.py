@@ -8,12 +8,19 @@ from gui.widgets import Label, Button
 from gui.core.writer import CWriter
 from gui.fonts import arial35, font10
 from gui.core.colors import WHITE, BLACK, D_GREEN, D_PINK
+import json 
+import os 
 
 
 
 # ---------------------------------------------------------
 # LED HELPER (turning leds off when leaving the game)
 # ---------------------------------------------------------
+
+LED_BRIGHTNESS = 0.2 # TODO: doesn't dim anything :(
+
+def dim_color(color):
+    return tuple(int(c * LED_BRIGHTNESS) for c in color)
 
 def turn_off_leds(np, led_power):
     # Safely clear NeoPixels
@@ -30,7 +37,7 @@ def turn_off_leds(np, led_power):
         try:
             led_power.value(0)
         except Exception:
-            pass  # silently ignore if pin already released
+            pass  
 
 # ---------------------------------------------------------
 # CAREER LOGIC
@@ -40,8 +47,8 @@ def determine_career(stats):
     Wis = stats["Wis"]
     Tech = stats["Tech"]
     Cha = stats["Cha"]
-    Str = stats["Str"]
-    Burden = stats["Burden"]
+    Str = stats["Str"] # SECRET stat 1 
+    Burden = stats["Burden"] # SECRET stat 2 (multiplayer version >> dirty tricks?)
 
     if Burden >= 12:
         return "Chaotic Hacker"
@@ -51,12 +58,16 @@ def determine_career(stats):
         return "Policy Tyrant"
     if Tech >= 8 and Burden >= 8:
         return "Rogue Hacker"
+    if Tech >= 10 and Str >= 3 and Cha <= 5:
+        return "Zero-Day Collector"
     if Tech >= 9 and Str >= 4:
         return "Sys Admin"
     if Tech >= 9 and Str >= 2:
         return "White Hat Hacker"
     if Wis >= 9 and Cha <= 2:
         return "Digital Hermit"
+    if Wis >= 11 and Str >= 1 and Cha <= 3:
+        return "DFIR Analyst"
     if Cha >= 8:
         return "Keynote Speaker"
     if Wis > 9:
@@ -68,48 +79,125 @@ def determine_career(stats):
     return "Happy person"
 
 
+
 # ---------------------------------------------------------
 # INTRO SCREEN
 # ---------------------------------------------------------
 
 class TamaIntroScreen(Screen):
+    HACKERGOTCHI_FILE = "hackergotchi.json"
+
     def __init__(self):
         super().__init__()
 
         self.wri = CWriter(ssd, font10, WHITE, BLACK, verbose=False)
 
-        Label(self.wri, 10, 2, 316,
-              justify=Label.CENTRE, fgcolor=D_GREEN).value("[ H A C K E R G O T C H I ]")
+        Label(
+            self.wri, 10, 2, 316,
+            justify=Label.CENTRE, fgcolor=D_GREEN
+        ).value("[ H A C K E R G O T C H I ]")
 
-        Label(self.wri, 40, 2, 316,
-              justify=Label.CENTRE, fgcolor=D_PINK).value("Are you ready to commit?")
+        if self.has_saved_hackergotchi():
+            self.draw_existing_hackergotchi()
+        else:
+            self.draw_new_intro()
+
+    # ---------- FILE HELPERS ----------
+    def has_saved_hackergotchi(self):
+        try:
+            return self.HACKERGOTCHI_FILE in os.listdir()
+        except Exception:
+            return False
+
+    def load_saved_hackergotchi(self):
+        with open(self.HACKERGOTCHI_FILE, "r") as f:
+            data = json.load(f)
+
+        stats = data.get("stats", {})
+        led_state = data.get("led_state", [(0, 0, 0)] * 10)
+
+        return stats, led_state
+
+
+    # ---------- NEW PLAYER ----------
+    def draw_new_intro(self):
+        Label(
+            self.wri, 40, 2, 316,
+            justify=Label.CENTRE, fgcolor=D_PINK
+        ).value("Are you ready to commit?")
 
         y = 85
         for line in (
             "Hatching a Hackergotchi is hard work",
             "and takes at least one hour.",
         ):
-            Label(self.wri, y, 2, 316,
-                  justify=Label.CENTRE, fgcolor=D_GREEN).value(line)
+            Label(
+                self.wri, y, 2, 316,
+                justify=Label.CENTRE, fgcolor=D_GREEN
+            ).value(line)
             y += 18
 
-        Button(self.wri, 150, 30, width=120, height=26,
-               text="Yikes, nope",
-               fgcolor=D_GREEN, textcolor=D_GREEN,
-               callback=lambda *_: self.exit_game())
+        Button(
+            self.wri, 150, 30, width=120, height=26,
+            text="Yikes, nope",
+            fgcolor=D_GREEN, textcolor=D_GREEN,
+            callback=lambda *_: self.exit_game()
+        )
 
-        Button(self.wri, 150, 170, width=120, height=26,
-               text="Bring it on",
-               fgcolor=D_GREEN, textcolor=D_GREEN,
-               callback=lambda *_: self.start_game())
+        Button(
+            self.wri, 150, 170, width=120, height=26,
+            text="Bring it on",
+            fgcolor=D_GREEN, textcolor=D_GREEN,
+            callback=lambda *_: self.start_new_game()
+        )
 
-    def start_game(self):
+    # ---------- EXISTING HACKERGOTCHI ----------
+    def draw_existing_hackergotchi(self):
+        Label(
+            self.wri, 40, 2, 316,
+            justify=Label.CENTRE, fgcolor=D_PINK
+        ).value("You already have a Hackergotchi.")
+
+        Label(
+            self.wri, 65, 2, 316,
+            justify=Label.CENTRE, fgcolor=D_GREEN
+        ).value("Would you like to see it")
+
+        Label(
+            self.wri, 85, 2, 316,
+            justify=Label.CENTRE, fgcolor=D_GREEN
+        ).value("or create a new one?")
+
+        Button(
+            self.wri, 150, 20, width=140, height=26,
+            text="Old Hackergotchi ",
+            fgcolor=D_GREEN, textcolor=D_GREEN,
+            callback=lambda *_: self.show_existing()
+        )
+
+        Button(
+            self.wri, 150, 180, width=140, height=26,
+            text="Create new",
+            fgcolor=D_GREEN, textcolor=D_GREEN,
+            callback=lambda *_: self.start_new_game()
+        )
+
+    # ---------- ACTIONS ----------
+    def show_existing(self):
+        stats, led_state = self.load_saved_hackergotchi()
+
+        Screen.change(
+            TamaCareerScreen,
+            args=(stats, led_state),
+            mode=Screen.REPLACE
+        )
+
+    def start_new_game(self):
         Screen.change(TamaGameScreen, mode=Screen.REPLACE)
 
     def exit_game(self):
         from bdg.screens.solo_games_screen import SoloGamesScreen
         Screen.change(SoloGamesScreen, mode=Screen.REPLACE)
-
 
 # ---------------------------------------------------------
 # GAME SCREEN
@@ -254,6 +342,24 @@ class TamaGameScreen(Screen):
             b.enabled = True
             b.show()
 
+    def save_stats(self):
+        career_name = determine_career(self.stats)
+
+        data_to_save = {
+            "stats": self.stats,
+            "career": career_name,
+            "led_state": [self.np[i] for i in range(len(self.np))]
+        }
+
+        tmp_file = "hackergotchi.tmp"
+        final_file = "hackergotchi.json"
+
+        with open(tmp_file, "w") as f:
+            json.dump(data_to_save, f)
+
+        os.rename(tmp_file, final_file)
+
+
     def feed(self, idx):
         if self.input_locked:
             return
@@ -267,7 +373,7 @@ class TamaGameScreen(Screen):
         # Stage 1 LED color selection
         if self.stage == 1:
             egg_colors = {
-                "Sun Orange": (255, 100, 60),
+                "Sun Orange": (220, 50, 0),
                 "Terminal Green": (0, 255, 0),
                 "Magic Purple": (70, 0, 255),
             }
@@ -278,14 +384,22 @@ class TamaGameScreen(Screen):
         for stat, val in self.QUESTIONS[self.stage - 1]["a"][idx]["stats"].items():
             self.stats[stat] += val
 
+        # If this was the last stage, save stats to persistent storage
+        if self.stage == self.TOTAL_STAGES:
+            self.save_stats()
+
         # Light LED for this stage
         led_index = len(self.np) - self.stage
         if 0 <= led_index < len(self.np):
             self.np[led_index] = self.led_color
             self.np.write()
 
-        # Capture LED state
+        # Capture LED state (NOW includes final LED)
         led_state = [self.np[i] for i in range(len(self.np))]
+
+        # Save only after LEDs are correct
+        if self.stage == self.TOTAL_STAGES:
+            self.save_stats()
 
         # Move to countdown screen
         Screen.change(
@@ -299,6 +413,9 @@ class TamaGameScreen(Screen):
             ),
             mode=Screen.REPLACE
         )
+
+
+        
     def get_led_state(self):
         return [self.np[i] for i in range(len(self.np))]
     
@@ -327,10 +444,6 @@ class TamaGameScreen(Screen):
             self.np[i] = (0, 0, 0)
         self.np.write()
         self.led_power.value(0)
-
-# ---------------------------------------------------------
-# COUNTDOWN SCREEN
-# ---------------------------------------------------------
 
 # ---------------------------------------------------------
 # COUNTDOWN SCREEN
@@ -374,7 +487,7 @@ class TamaCountdownScreen(Screen):
         self.reg_task(self._countdown(), False)
 
     async def _countdown(self):
-        duration = 5  # seconds for testing; use 360 for real game
+        duration = 300  # seconds 
         end_time = time.time() + duration
 
         spinner_chars = ["|", "/", "-", "\\"]
@@ -478,14 +591,16 @@ class TamaCareerScreen(Screen):
             "Chaotic Hacker": "Up to no good.",
             "Micromanager CEO": "They just care. A bit too much.",
             "Policy Tyrant": "Without them we would be nothing.",
-            "Rogue Hacker": "Vulns everywhere, for them to grab.",
+            "Rogue Hacker": "Vulns everywhere, for them to  ca$h.",
+            "Zero-Day Collector": "Exploits of tomorrow, today.",
             "Sys Admin": "Stands between you and mayhem.",
             "White Hat Hacker": "Will hack for good.",
             "Keynote Speaker": "Hacks other people. With words.",
             "CISO": "Guardian of secrets, holder of budgets.",
-            "Consultant": "Provider of wisdom and guidance.",
+            "Consultant": "Provider of infinent wisdom.",
             "SOC Analyst": "Ever vigilant. Unless sleeping.",
             "Happy person": "Here to just enjoy life.",
+            "DFIR Analyst": "Finds the truth from ashes.",
             "Digital Hermit": "People are the virus."
         }
         description = CAREER_DESCRIPTIONS.get(career_name, "")
@@ -493,14 +608,14 @@ class TamaCareerScreen(Screen):
               justify=Label.CENTRE, fgcolor=D_GREEN).value(description)
 
         Button(self.wri_small, 150, 100, width=120, height=26,
-               text="Finish",
+               text="Exit",
                fgcolor=D_GREEN, textcolor=D_GREEN,
                callback=lambda *_: self.exit_game())
 
         # FLASH LEDs
         self.led_task = self.reg_task(self.blink_leds(), False)  # save reference to task
 
-    async def blink_leds(self, times=4, delay=0.2):
+    async def blink_leds(self, times=1, delay=0.2):
         current_colors = [self.np[i] for i in range(len(self.np))]
         try:
             for _ in range(times):
@@ -525,6 +640,9 @@ class TamaCareerScreen(Screen):
                 self.np[i] = current_colors[i]
             self.np.write()
 
+
+
+    # exit_game() 
     def exit_game(self):
         # Cancel LED task if still running
         if hasattr(self, "led_task"):
@@ -539,6 +657,15 @@ class TamaCareerScreen(Screen):
         from bdg.screens.solo_games_screen import SoloGamesScreen
         Screen.change(SoloGamesScreen, mode=Screen.REPLACE)
 
+    # override on_hide() to handle back button
+    def on_hide(self):
+        # Cancel LED task if still running
+        if hasattr(self, "led_task"):
+            self.led_task.cancel()
+
+        # Safely turn off LEDs
+        turn_off_leds(self.np, self.led_power)
+
 
 
 # ---------------------------------------------------------
@@ -548,9 +675,9 @@ class TamaCareerScreen(Screen):
 def badge_game_config():
     return {
         "con_id": 3,
-        "title": "Hackergotchi (Dev)",
+        "title": "Hackergotchi",
         "screen_class": TamaIntroScreen,
         "screen_args": (),
         "multiplayer": False,
-        "description": "A tiny creature that grows depending on how your choices",
+        "description": "A tiny creature that evolves depending on your choices",
     }
