@@ -1,5 +1,6 @@
 from bdg.screens.solo_games_screen import SoloGamesScreen
 from bdg.screens.info_screen import InfoScreen
+from bdg.screens.credits_screen import CreditsScreen
 from gui.fonts import freesans20, font10
 from gui.core.colors import *
 from gui.core.ugui import Screen, ssd
@@ -23,6 +24,7 @@ class OptionScreen(Screen):
         self.els = [
             "Home",
             "Info",
+            "Credits",
             "Firmware update",
             "Solo games & apps",
         ]
@@ -63,6 +65,8 @@ class OptionScreen(Screen):
             Screen.change(GameLobbyScr)
         elif selected == "Info":
             Screen.change(InfoScreen, mode=Screen.STACK)
+        elif selected == "Credits":
+            Screen.change(CreditsScreen, mode=Screen.STACK)
         elif selected == "Firmware update":
             Screen.change(
                 OTAScreen,

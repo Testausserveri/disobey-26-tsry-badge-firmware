@@ -176,8 +176,11 @@ The Disobey Badge is brought to you by:
 | Paaris       |  ✓   |  ✓   |
 | Sanduuz      |      |  ✓   |
 | Shadikka     |      |  ✓   |
+| Tidely       |      |  ✓   |
 | Troyhy       |  ✓   |  ✓   |
 | Zokol        |  ✓   |  ✓   |
+
+PCB Design was done by tracy.
 
 ## Support
 
