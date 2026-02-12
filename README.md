@@ -176,7 +176,7 @@ The Disobey Badge is brought to you by:
 | Paaris       |  ✓   |  ✓   |
 | Sanduuz      |      |  ✓   |
 | Shadikka     |      |  ✓   |
-| Tidely       |      |  ✓   |
+| tidely       |      |  ✓   |
 | Troyhy       |  ✓   |  ✓   |
 | Zokol        |  ✓   |  ✓   |
 

@@ -32,7 +32,7 @@ class CreditsScreen(Screen):
             "Paaris",
             "Sanduuz",
             "Shadikka",
-            "Tidely",
+            "tidely",
             "Troyhy",
             "Zokol",
         ]
