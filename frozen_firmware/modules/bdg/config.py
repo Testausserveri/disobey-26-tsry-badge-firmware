@@ -38,7 +38,7 @@ def gen_nick(boadr_id):
 
 def clean_user_nick(config):
     nick = config.get("espnow", {}).get("nick", "")
-    if not nick or len(nick) < 5:
+    if not nick or len(nick) < 4:
         nick = gen_nick(machine.unique_id())
 
     nick = nick.replace(" ", "_")[:15]

@@ -17,6 +17,28 @@ def copy_img_to_mvb(img_file, ssd):
         f.readinto(ssd.mvb)
 
 
+@micropython.viper
+def blit_palette(dest: ptr8, src: ptr8, pal: ptr8, npixels: int):
+    """Fast palette-to-RGB565 blit. src=palette indices, pal=RGB565_I palette, dest=display buffer."""
+    i: int = 0
+    while i < npixels:
+        idx = int(src[i]) * 2
+        dest[i * 2] = pal[idx]
+        dest[i * 2 + 1] = pal[idx + 1]
+        i += 1
+
+
+@micropython.viper
+def blit_palette_row(dest: ptr8, src: ptr8, pal: ptr8, cols: int, src_offset: int):
+    """Expand one row of palette indices into RGB565 in dest (a line buffer)."""
+    i: int = 0
+    while i < cols:
+        idx = int(src[src_offset + i]) * 2
+        dest[i * 2] = pal[idx]
+        dest[i * 2 + 1] = pal[idx + 1]
+        i += 1
+
+
 from framebuf import RGB565, GS4_HMSB, GS8
 
 # RGB565_I (mode 10) is the inverted RGB565 format - same byte size as RGB565

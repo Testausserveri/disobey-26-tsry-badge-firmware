@@ -20,18 +20,26 @@ from gui.core.colors import WHITE, BLACK, GREY
 from bdg.widgets.hidden_active_widget import HiddenActiveWidget
 from bdg.bleds import clear_leds, dimm_gamma
 from bdg.asyncbutton import ButtonEvents, ButAct
-from images import matriisi as matriisi_img
 from images import testausserveri_logo as logo_img
 
+# Try to import animated background support (requires lajp firmware)
+try:
+    from bdg.utils import blit_palette
+    from images import testausserveri_bg_anim as bg_anim
+    HAS_ANIMATED_BG = True
+except ImportError:
+    from images import matriisi as matriisi_img
+    HAS_ANIMATED_BG = False
+
 # Nearby friends: opacity decays until next BeaconMsg with same nick
-FADE_DECAY = 0.015  # per frame
+FADE_DECAY = 0.003  # per frame
 MIN_OPACITY = 0.05
-BOUNCE_SPEED = 6.0  # Speed of floating nicknames
+BOUNCE_SPEED = 8.0   # Speed of floating nicknames
 ANIMATION_INTERVAL = 0.08
 
 # Discord stats
 DISCORD_API_URL = "https://api.testausserveri.fi/v1/discord/guildInfo?r=memberCount,membersOnline,messagesToday"
-DISCORD_FETCH_INTERVAL = 10  # seconds
+DISCORD_FETCH_INTERVAL = 30  # seconds
 
 LOGO_W = logo_img.cols
 LOGO_H = logo_img.rows
@@ -68,7 +76,6 @@ class Testausserveri(Screen):
     def __init__(self):
         super().__init__()
 
-        print("moj")
         self.wri_nick = CWriter(ssd, poppins35, WHITE, AlphaColor(BLACK), verbose=False)
         self.wri_floating = CWriter(ssd, font10, WHITE, AlphaColor(BLACK), verbose=False)
         self.wri_floating.set_clip(True, True, False)  # Clip instead of scroll
@@ -89,34 +96,95 @@ class Testausserveri(Screen):
         # Clamp label width so Label stays within screen
         label_w = min(self.nick_w, max(1, ssd.width - self.nick_col - 1))
 
-        Label(
+        self.nick_label = Label(
             self.wri_nick, nick_row, self.nick_col, label_w,
             bdcolor=False, bgcolor=AlphaColor(BLACK),
-        ).value(self.nick)
+        )
+        self.nick_label.value(self.nick)
 
         HiddenActiveWidget(self.wri_nick)
         self.led_power = Pin(17, Pin.OUT)
         self.led_power.value(1)
         self.np = NeoPixel(Pin(18), 10)
         self.running = True
+
         # Nearby friends: nick -> {x, y, vx, vy, opacity, last_seen}
         self._floating = {}
         self._floating_lock = asyncio.Lock()
-        
+
         # Discord stats
         self._discord_stats = None
         self._show_discord_stats = True  # Show by default, toggle with SELECT
         self._be = None  # Button events
 
+        # Animated background (if available)
+        if HAS_ANIMATED_BG:
+            self.frame_size = bg_anim.rows * bg_anim.cols
+            self.num_frames = bg_anim.num_frames
+
     def after_open(self):
+        if HAS_ANIMATED_BG:
+            self._after_open_animated()
+        else:
+            self._after_open_static()
+
+        self.reg_task(self.led_animation(), True)
+        # self.reg_task(self._beacon_updates(), True)
+        # self.reg_task(self._nearby_friends_animation(), True)
+        self.reg_task(self._discord_stats_fetcher(), True)
+        self.reg_task(self._button_handler(), True)
+
+    def _after_open_animated(self):
+        """Set up animated background with nick text snapshotting."""
+        # Draw first frame with logo + label
+        blit_palette(ssd.mvb, bg_anim.frames[0], bg_anim.palette, self.frame_size)
+        blit_keyed(ssd, logo_img, self.logo_row, self.logo_col)
+
+        # Snapshot pure background in label region BEFORE text rendering
+        row_bytes = bg_anim.cols * 2
+        self._nick_row0 = self.nick_label.row
+        self._nick_rows = self.nick_label.height
+        self._nick_col0 = self.nick_label.col
+        self._nick_cols = self.nick_label.width
+        nick_byte_w = self._nick_cols * 2
+        snap_size = self._nick_rows * nick_byte_w
+        nick_bg = bytearray(snap_size)
+        for r in range(self._nick_rows):
+            src = (self._nick_row0 + r) * row_bytes + self._nick_col0 * 2
+            dst = r * nick_byte_w
+            nick_bg[dst:dst + nick_byte_w] = ssd.mvb[src:src + nick_byte_w]
+
+        self.show(True)  # Renders label widget into mvb + physical refresh
+
+        # Snapshot label region WITH text
+        nick_with_text = bytearray(snap_size)
+        for r in range(self._nick_rows):
+            src = (self._nick_row0 + r) * row_bytes + self._nick_col0 * 2
+            dst = r * nick_byte_w
+            nick_with_text[dst:dst + nick_byte_w] = ssd.mvb[src:src + nick_byte_w]
+
+        # Build text-only snapshot: text pixels kept, bg pixels set to key color
+        KEY0 = 0x01
+        KEY1 = 0x00
+        self._nick_snap = bytearray(snap_size)
+        for i in range(0, snap_size, 2):
+            if nick_with_text[i] != nick_bg[i] or nick_with_text[i + 1] != nick_bg[i + 1]:
+                self._nick_snap[i] = nick_with_text[i]
+                self._nick_snap[i + 1] = nick_with_text[i + 1]
+            else:
+                self._nick_snap[i] = KEY0
+                self._nick_snap[i + 1] = KEY1
+        self._nick_key0 = KEY0
+        self._nick_key1 = KEY1
+
+        self.reg_task(self._bg_animation_loop(), True)
+
+    def _after_open_static(self):
+        """Set up static background (fallback when animated bg not available)."""
         blit(ssd, matriisi_img, 0, 0)
         blit_keyed(ssd, logo_img, self.logo_row, self.logo_col)
         self.show(True)
-        self.reg_task(self.led_animation(), True)
-        self.reg_task(self._beacon_updates(), True)
-        self.reg_task(self._nearby_friends_animation(), True)
-        self.reg_task(self._discord_stats_fetcher(), True)
-        self.reg_task(self._button_handler(), True)
+        self.reg_task(self._static_redraw_loop(), True)
 
     def on_hide(self):
         self.running = False
@@ -125,61 +193,33 @@ class Testausserveri(Screen):
         if self._be:
             self._be.close()
 
-    async def _discord_stats_fetcher(self):
-        """Connect to WiFi and fetch Discord stats every 10 seconds."""
-        import network
-        sta = network.WLAN(network.STA_IF)
-        
-        # Get WiFi credentials from config
-        ota_cfg = Config.config.get("ota", {})
-        wifi_cfg = ota_cfg.get("wifi", {})
-        ssid = wifi_cfg.get("ssid")
-        password = wifi_cfg.get("password")
-        
-        if not ssid:
-            print("Discord stats: No WiFi SSID configured, skipping")
-            self._discord_stats = {"error": "No WiFi"}
-            return
-        
-        # Connect to WiFi (ESP-NOW keeps working alongside)
-        if not sta.isconnected():
-            print(f"Discord stats: Connecting to WiFi '{ssid}'...")
-            sta.active(True)
-            await asyncio.sleep_ms(100)
-            sta.connect(ssid, password)
-            
-            # Wait for connection (max 15 seconds)
-            for _ in range(30):
-                if sta.isconnected():
-                    break
-                await asyncio.sleep_ms(500)
-            
-            if sta.isconnected():
-                print(f"Discord stats: WiFi connected! IP={sta.ifconfig()[0]}")
-            else:
-                print(f"Discord stats: WiFi connection failed")
-                self._discord_stats = {"error": "WiFi failed"}
-                self._redraw()
-                return
-        
-        # Fetch loop
-        while self.running:
-            try:
-                response = requests.get(DISCORD_API_URL, timeout=5)
-                if response.status_code == 200:
-                    self._discord_stats = response.json()
-                    print(f"Discord stats updated: {self._discord_stats}")
-                response.close()
-            except Exception as e:
-                print(f"Failed to fetch Discord stats: {e}")
-            # Redraw screen with stats
-            self._redraw()
-            await asyncio.sleep(DISCORD_FETCH_INTERVAL)
+    # --- Rendering helpers ---
 
-    def _redraw(self):
-        """Redraw the full screen: background, logo, floating nicks, discord stats."""
-        blit(ssd, matriisi_img, 0, 0)
-        blit_keyed(ssd, logo_img, self.logo_row, self.logo_col)
+    def _overlay_nick_snap(self):
+        """Overlay the pre-snapshotted nick text onto ssd.mvb."""
+        nick_snap = self._nick_snap
+        nick_row0 = self._nick_row0
+        nick_rows = self._nick_rows
+        nick_col0 = self._nick_col0
+        nick_cols = self._nick_cols
+        nick_byte_w = nick_cols * 2
+        nick_key0 = self._nick_key0
+        nick_key1 = self._nick_key1
+        row_bytes = ssd.width * 2
+        mvb = ssd.mvb
+
+        for r in range(nick_rows):
+            ns = r * nick_byte_w
+            ds = (nick_row0 + r) * row_bytes + nick_col0 * 2
+            for p in range(nick_cols):
+                si = ns + p * 2
+                if nick_snap[si] != nick_key0 or nick_snap[si + 1] != nick_key1:
+                    di = ds + p * 2
+                    mvb[di] = nick_snap[si]
+                    mvb[di + 1] = nick_snap[si + 1]
+
+    def _draw_floating_nicks(self):
+        """Draw floating nicknames onto current framebuffer."""
         for nick, p in self._floating.items():
             if p["opacity"] < MIN_OPACITY:
                 continue
@@ -188,56 +228,25 @@ class Testausserveri(Screen):
             Writer.set_textpos(ssd, int(p["y"]), int(p["x"]))
             self.wri_floating.printstring(nick)
             self.wri_floating.setcolor()
-        self._draw_discord_stats()
-        self.show(True)
-
-    async def _button_handler(self):
-        """Handle button press to toggle Discord stats display."""
-        ev_subset = ButtonEvents.get_event_subset(
-            {
-                "btn_select": [ButAct.PRESS],  # Use SELECT button to toggle
-            }
-        )
-        self._be = ButtonEvents(ev_subset)
-        
-        while self.running:
-            ev = await self._be.get_event()
-            if ev and ev.but_name == "btn_select" and ev.action == ButAct.PRESS:
-                self._show_discord_stats = not self._show_discord_stats
-                print(f"Discord stats display: {self._show_discord_stats}")
-                self._redraw()
 
     def _draw_discord_stats(self):
         """Draw Discord stats in top left corner."""
         if not self._show_discord_stats:
             return
-        
+
         try:
             self.wri_floating.setcolor(WHITE, AlphaColor(BLACK))
-            
-            if self._discord_stats is None:
-                Writer.set_textpos(ssd, 2, 2)
-                self.wri_floating.printstring("Connecting WiFi...")
-            elif "error" in self._discord_stats:
-                Writer.set_textpos(ssd, 2, 2)
-                self.wri_floating.printstring("No WiFi")
+
+            if self._discord_stats is None or "error" in self._discord_stats:
+                return  # No data yet or no WiFi -- just hide stats
             else:
                 members_online = self._discord_stats.get("membersOnline", 0)
                 member_count = self._discord_stats.get("memberCount", 0)
                 messages_today = self._discord_stats.get("messagesToday", 0)
-                
-                # Line 1: "Discord stats:"
+
                 Writer.set_textpos(ssd, 2, 2)
-                self.wri_floating.printstring("Discord stats:")
-                
-                # Line 2: "Members: online / count"
-                Writer.set_textpos(ssd, 16, 2)
-                self.wri_floating.printstring(f"Members: {members_online}/{member_count}")
-                
-                # Line 3: "Messages today: xx"
-                Writer.set_textpos(ssd, 30, 2)
-                self.wri_floating.printstring(f"Messages: {messages_today}")
-            
+                self.wri_floating.printstring(f"Members: {members_online}/{member_count} | Messages: {messages_today}")
+
             self.wri_floating.setcolor()
         except Exception as e:
             print(f"Error drawing Discord stats: {e}")
@@ -248,6 +257,94 @@ class Testausserveri(Screen):
         if opacity > 0.2:
             return GREY
         return BLACK
+
+    # --- Background rendering loops ---
+
+    async def _bg_animation_loop(self):
+        """Animated background loop -- renders each frame with all overlays."""
+        Screen.rfsh_start.clear()
+        frames = bg_anim.frames
+        pal = bg_anim.palette
+        idx = 1  # Frame 0 already drawn in after_open
+        while self.running:
+            # Render background frame into framebuffer
+            blit_palette(ssd.mvb, frames[idx], pal, self.frame_size)
+            # Overlay logo
+            blit_keyed(ssd, logo_img, self.logo_row, self.logo_col)
+            # Overlay nick text snapshot
+            self._overlay_nick_snap()
+            # Overlay floating friends
+            self._draw_floating_nicks()
+            # Overlay discord stats
+            self._draw_discord_stats()
+            # Flush to display
+            ssd.show()
+            idx = (idx + 1) % self.num_frames
+            await asyncio.sleep(0.15)
+        # Restore auto_refresh when we stop
+        Screen.rfsh_start.set()
+
+    async def _static_redraw_loop(self):
+        """Static background redraw loop (fallback when no animated bg)."""
+        while self.running:
+            await asyncio.sleep(ANIMATION_INTERVAL)
+            # Redraw static background, logo, and all overlays
+            blit(ssd, matriisi_img, 0, 0)
+            blit_keyed(ssd, logo_img, self.logo_row, self.logo_col)
+            self._draw_floating_nicks()
+            self._draw_discord_stats()
+            self.show(True)
+
+    # --- Async feature tasks ---
+
+    async def _discord_stats_fetcher(self):
+        """Connect WiFi once, then fetch Discord stats every 10 seconds."""
+        import network
+        sta = network.WLAN(network.STA_IF)
+
+        # Try to connect WiFi (don't touch sta.active -- ESP-NOW needs it)
+        if not sta.isconnected():
+            ota_cfg = Config.config.get("ota", {})
+            wifi_cfg = ota_cfg.get("wifi", {})
+            ssid = wifi_cfg.get("ssid")
+            password = wifi_cfg.get("password")
+
+            if ssid:
+                sta.connect(ssid, password)
+                for _ in range(30):  # wait up to 15s
+                    if sta.isconnected():
+                        break
+                    await asyncio.sleep_ms(500)
+
+        # Fetch loop
+        while self.running:
+            if not sta.isconnected():
+                self._discord_stats = {"error": "No WiFi"}
+            else:
+                try:
+                    response = requests.get(DISCORD_API_URL, timeout=5)
+                    if response.status_code == 200:
+                        self._discord_stats = response.json()
+                    response.close()
+                except Exception as e:
+                    print(f"Failed to fetch Discord stats: {e}")
+            await asyncio.sleep(DISCORD_FETCH_INTERVAL)
+
+    async def _button_handler(self):
+        """Handle button press to toggle Discord stats display."""
+        ev_subset = ButtonEvents.get_event_subset(
+            [
+                ("btn_select", ButAct.ACT_PRESS),
+            ]
+        )
+        self._be = ButtonEvents(ev_subset)
+
+        async for btn, ev in self._be.get_btn_events():
+            if not self.running:
+                return
+            if btn == "btn_select" and ev == ButAct.ACT_PRESS:
+                self._show_discord_stats = not self._show_discord_stats
+                print(f"Discord stats display: {self._show_discord_stats}")
 
     async def _beacon_updates(self):
         from bdg.msg.connection import NowListener
@@ -260,12 +357,10 @@ class Testausserveri(Screen):
                 if latest is None:
                     continue
                 nick = latest.nick if isinstance(latest.nick, str) else latest.nick.decode("utf-8")
-                print(f"Beacon from: {nick}, own: {self.nick}, match: {nick == self.nick}")
                 if nick == self.nick:
                     continue
                 async with self._floating_lock:
                     if nick not in self._floating:
-                        print(f"Adding new floating nick: {nick}")
                         nw = self.wri_floating.stringlen(nick)
                         max_x = max(0, ssd.width - nw - 4)
                         max_y = max(0, ssd.height - FLOATING_TEXT_H - 8)
@@ -278,16 +373,15 @@ class Testausserveri(Screen):
                             "last_seen": time(),
                         }
                     else:
-                        print(f"Refreshing floating nick: {nick}")
                         self._floating[nick]["opacity"] = 1.0
                         self._floating[nick]["last_seen"] = time()
         except asyncio.CancelledError:
             pass
 
     async def _nearby_friends_animation(self):
+        """Update floating nick positions and opacity (rendering handled by bg loop)."""
         while self.running:
             await asyncio.sleep(ANIMATION_INTERVAL)
-            need_clear = False
             async with self._floating_lock:
                 to_remove = []
                 for nick, p in self._floating.items():
@@ -305,16 +399,11 @@ class Testausserveri(Screen):
                         to_remove.append(nick)
                 for nick in to_remove:
                     del self._floating[nick]
-                floating = list(self._floating.items())
-                need_clear = to_remove and not self._floating
-            if not floating and not need_clear:
-                continue
-            self._redraw()
 
     async def led_animation(self):
         colors = dimm_gamma(
             [(0, 0, 255), (0, 100, 255), (0, 200, 255), (0, 255, 255)],
-            0.4,
+            0.1,
         )
         idx = 0
         while self.running:

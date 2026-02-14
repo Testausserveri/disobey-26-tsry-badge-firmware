@@ -1,5 +1,12 @@
 # Badge Firmware
 
+Tämä firmis sisältää sovellukset:
+- Testausserveri
+  - Animoitu tausta
+  - Lähellä olevat nickit
+  - Discordin statsit
+- Tetris
+
 A MicroPython firmware project for electronic badges. This repository manages the complex ecosystem of MicroPython firmware development with custom support for WROOM W2 and EC Cryptography.
 
 ## Quick Start
